@@ -1,0 +1,1818 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+<head>
+<title>Source code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../stylesheet.css" title="Style">
+</head>
+<body>
+<div class="sourceContainer">
+<pre><span class="sourceLineNo">001</span>/*<a name="line.1"></a>
+<span class="sourceLineNo">002</span> * Licensed to the Apache Software Foundation (ASF) under one or more<a name="line.2"></a>
+<span class="sourceLineNo">003</span> * contributor license agreements.  See the NOTICE file distributed with<a name="line.3"></a>
+<span class="sourceLineNo">004</span> * this work for additional information regarding copyright ownership.<a name="line.4"></a>
+<span class="sourceLineNo">005</span> * The ASF licenses this file to You under the Apache License, Version 2.0<a name="line.5"></a>
+<span class="sourceLineNo">006</span> * (the "License"); you may not use this file except in compliance with<a name="line.6"></a>
+<span class="sourceLineNo">007</span> * the License.  You may obtain a copy of the License at<a name="line.7"></a>
+<span class="sourceLineNo">008</span> *<a name="line.8"></a>
+<span class="sourceLineNo">009</span> *      http://www.apache.org/licenses/LICENSE-2.0<a name="line.9"></a>
+<span class="sourceLineNo">010</span> *<a name="line.10"></a>
+<span class="sourceLineNo">011</span> * Unless required by applicable law or agreed to in writing, software<a name="line.11"></a>
+<span class="sourceLineNo">012</span> * distributed under the License is distributed on an "AS IS" BASIS,<a name="line.12"></a>
+<span class="sourceLineNo">013</span> * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.<a name="line.13"></a>
+<span class="sourceLineNo">014</span> * See the License for the specific language governing permissions and<a name="line.14"></a>
+<span class="sourceLineNo">015</span> * limitations under the License.<a name="line.15"></a>
+<span class="sourceLineNo">016</span> */<a name="line.16"></a>
+<span class="sourceLineNo">017</span><a name="line.17"></a>
+<span class="sourceLineNo">018</span>package org.apache.commons.logging;<a name="line.18"></a>
+<span class="sourceLineNo">019</span><a name="line.19"></a>
+<span class="sourceLineNo">020</span>import java.io.BufferedReader;<a name="line.20"></a>
+<span class="sourceLineNo">021</span>import java.io.FileOutputStream;<a name="line.21"></a>
+<span class="sourceLineNo">022</span>import java.io.IOException;<a name="line.22"></a>
+<span class="sourceLineNo">023</span>import java.io.InputStream;<a name="line.23"></a>
+<span class="sourceLineNo">024</span>import java.io.InputStreamReader;<a name="line.24"></a>
+<span class="sourceLineNo">025</span>import java.io.PrintStream;<a name="line.25"></a>
+<span class="sourceLineNo">026</span>import java.lang.reflect.InvocationTargetException;<a name="line.26"></a>
+<span class="sourceLineNo">027</span>import java.lang.reflect.Method;<a name="line.27"></a>
+<span class="sourceLineNo">028</span>import java.net.URL;<a name="line.28"></a>
+<span class="sourceLineNo">029</span>import java.net.URLConnection;<a name="line.29"></a>
+<span class="sourceLineNo">030</span>import java.security.AccessController;<a name="line.30"></a>
+<span class="sourceLineNo">031</span>import java.security.PrivilegedAction;<a name="line.31"></a>
+<span class="sourceLineNo">032</span>import java.util.Enumeration;<a name="line.32"></a>
+<span class="sourceLineNo">033</span>import java.util.Hashtable;<a name="line.33"></a>
+<span class="sourceLineNo">034</span>import java.util.Properties;<a name="line.34"></a>
+<span class="sourceLineNo">035</span><a name="line.35"></a>
+<span class="sourceLineNo">036</span>/**<a name="line.36"></a>
+<span class="sourceLineNo">037</span> * Factory for creating {@link Log} instances, with discovery and<a name="line.37"></a>
+<span class="sourceLineNo">038</span> * configuration features similar to that employed by standard Java APIs<a name="line.38"></a>
+<span class="sourceLineNo">039</span> * such as JAXP.<a name="line.39"></a>
+<span class="sourceLineNo">040</span> * &lt;p&gt;<a name="line.40"></a>
+<span class="sourceLineNo">041</span> * &lt;strong&gt;IMPLEMENTATION NOTE&lt;/strong&gt; - This implementation is heavily<a name="line.41"></a>
+<span class="sourceLineNo">042</span> * based on the SAXParserFactory and DocumentBuilderFactory implementations<a name="line.42"></a>
+<span class="sourceLineNo">043</span> * (corresponding to the JAXP pluggability APIs) found in Apache Xerces.<a name="line.43"></a>
+<span class="sourceLineNo">044</span> *<a name="line.44"></a>
+<span class="sourceLineNo">045</span> * @version $Id: LogFactory.java 1449064 2013-02-22 14:49:22Z tn $<a name="line.45"></a>
+<span class="sourceLineNo">046</span> */<a name="line.46"></a>
+<span class="sourceLineNo">047</span>public abstract class LogFactory {<a name="line.47"></a>
+<span class="sourceLineNo">048</span>    // Implementation note re AccessController usage<a name="line.48"></a>
+<span class="sourceLineNo">049</span>    //<a name="line.49"></a>
+<span class="sourceLineNo">050</span>    // It is important to keep code invoked via an AccessController to small<a name="line.50"></a>
+<span class="sourceLineNo">051</span>    // auditable blocks. Such code must carefully evaluate all user input<a name="line.51"></a>
+<span class="sourceLineNo">052</span>    // (parameters, system properties, config file contents, etc). As an<a name="line.52"></a>
+<span class="sourceLineNo">053</span>    // example, a Log implementation should not write to its logfile<a name="line.53"></a>
+<span class="sourceLineNo">054</span>    // with an AccessController anywhere in the call stack, otherwise an<a name="line.54"></a>
+<span class="sourceLineNo">055</span>    // insecure application could configure the log implementation to write<a name="line.55"></a>
+<span class="sourceLineNo">056</span>    // to a protected file using the privileges granted to JCL rather than<a name="line.56"></a>
+<span class="sourceLineNo">057</span>    // to the calling application.<a name="line.57"></a>
+<span class="sourceLineNo">058</span>    //<a name="line.58"></a>
+<span class="sourceLineNo">059</span>    // Under no circumstance should a non-private method return data that is<a name="line.59"></a>
+<span class="sourceLineNo">060</span>    // retrieved via an AccessController. That would allow an insecure app<a name="line.60"></a>
+<span class="sourceLineNo">061</span>    // to invoke that method and obtain data that it is not permitted to have.<a name="line.61"></a>
+<span class="sourceLineNo">062</span>    //<a name="line.62"></a>
+<span class="sourceLineNo">063</span>    // Invoking user-supplied code with an AccessController set is not a major<a name="line.63"></a>
+<span class="sourceLineNo">064</span>    // issue (eg invoking the constructor of the class specified by<a name="line.64"></a>
+<span class="sourceLineNo">065</span>    // HASHTABLE_IMPLEMENTATION_PROPERTY). That class will be in a different<a name="line.65"></a>
+<span class="sourceLineNo">066</span>    // trust domain, and therefore must have permissions to do whatever it<a name="line.66"></a>
+<span class="sourceLineNo">067</span>    // is trying to do regardless of the permissions granted to JCL. There is<a name="line.67"></a>
+<span class="sourceLineNo">068</span>    // a slight issue in that untrusted code may point that environment var<a name="line.68"></a>
+<span class="sourceLineNo">069</span>    // to another trusted library, in which case the code runs if both that<a name="line.69"></a>
+<span class="sourceLineNo">070</span>    // lib and JCL have the necessary permissions even when the untrusted<a name="line.70"></a>
+<span class="sourceLineNo">071</span>    // caller does not. That's a pretty hard route to exploit though.<a name="line.71"></a>
+<span class="sourceLineNo">072</span><a name="line.72"></a>
+<span class="sourceLineNo">073</span>    // ----------------------------------------------------- Manifest Constants<a name="line.73"></a>
+<span class="sourceLineNo">074</span><a name="line.74"></a>
+<span class="sourceLineNo">075</span>    /**<a name="line.75"></a>
+<span class="sourceLineNo">076</span>     * The name (&lt;code&gt;priority&lt;/code&gt;) of the key in the config file used to<a name="line.76"></a>
+<span class="sourceLineNo">077</span>     * specify the priority of that particular config file. The associated value<a name="line.77"></a>
+<span class="sourceLineNo">078</span>     * is a floating-point number; higher values take priority over lower values.<a name="line.78"></a>
+<span class="sourceLineNo">079</span>     */<a name="line.79"></a>
+<span class="sourceLineNo">080</span>    public static final String PRIORITY_KEY = "priority";<a name="line.80"></a>
+<span class="sourceLineNo">081</span><a name="line.81"></a>
+<span class="sourceLineNo">082</span>    /**<a name="line.82"></a>
+<span class="sourceLineNo">083</span>     * The name (&lt;code&gt;use_tccl&lt;/code&gt;) of the key in the config file used<a name="line.83"></a>
+<span class="sourceLineNo">084</span>     * to specify whether logging classes should be loaded via the thread<a name="line.84"></a>
+<span class="sourceLineNo">085</span>     * context class loader (TCCL), or not. By default, the TCCL is used.<a name="line.85"></a>
+<span class="sourceLineNo">086</span>     */<a name="line.86"></a>
+<span class="sourceLineNo">087</span>    public static final String TCCL_KEY = "use_tccl";<a name="line.87"></a>
+<span class="sourceLineNo">088</span><a name="line.88"></a>
+<span class="sourceLineNo">089</span>    /**<a name="line.89"></a>
+<span class="sourceLineNo">090</span>     * The name (&lt;code&gt;org.apache.commons.logging.LogFactory&lt;/code&gt;) of the property<a name="line.90"></a>
+<span class="sourceLineNo">091</span>     * used to identify the LogFactory implementation<a name="line.91"></a>
+<span class="sourceLineNo">092</span>     * class name. This can be used as a system property, or as an entry in a<a name="line.92"></a>
+<span class="sourceLineNo">093</span>     * configuration properties file.<a name="line.93"></a>
+<span class="sourceLineNo">094</span>     */<a name="line.94"></a>
+<span class="sourceLineNo">095</span>    public static final String FACTORY_PROPERTY = "org.apache.commons.logging.LogFactory";<a name="line.95"></a>
+<span class="sourceLineNo">096</span><a name="line.96"></a>
+<span class="sourceLineNo">097</span>    /**<a name="line.97"></a>
+<span class="sourceLineNo">098</span>     * The fully qualified class name of the fallback &lt;code&gt;LogFactory&lt;/code&gt;<a name="line.98"></a>
+<span class="sourceLineNo">099</span>     * implementation class to use, if no other can be found.<a name="line.99"></a>
+<span class="sourceLineNo">100</span>     */<a name="line.100"></a>
+<span class="sourceLineNo">101</span>    public static final String FACTORY_DEFAULT = "org.apache.commons.logging.impl.LogFactoryImpl";<a name="line.101"></a>
+<span class="sourceLineNo">102</span><a name="line.102"></a>
+<span class="sourceLineNo">103</span>    /**<a name="line.103"></a>
+<span class="sourceLineNo">104</span>     * The name (&lt;code&gt;commons-logging.properties&lt;/code&gt;) of the properties file to search for.<a name="line.104"></a>
+<span class="sourceLineNo">105</span>     */<a name="line.105"></a>
+<span class="sourceLineNo">106</span>    public static final String FACTORY_PROPERTIES = "commons-logging.properties";<a name="line.106"></a>
+<span class="sourceLineNo">107</span><a name="line.107"></a>
+<span class="sourceLineNo">108</span>    /**<a name="line.108"></a>
+<span class="sourceLineNo">109</span>     * JDK1.3+ &lt;a href="http://java.sun.com/j2se/1.3/docs/guide/jar/jar.html#Service%20Provider"&gt;<a name="line.109"></a>
+<span class="sourceLineNo">110</span>     * 'Service Provider' specification&lt;/a&gt;.<a name="line.110"></a>
+<span class="sourceLineNo">111</span>     */<a name="line.111"></a>
+<span class="sourceLineNo">112</span>    protected static final String SERVICE_ID =<a name="line.112"></a>
+<span class="sourceLineNo">113</span>        "META-INF/services/org.apache.commons.logging.LogFactory";<a name="line.113"></a>
+<span class="sourceLineNo">114</span><a name="line.114"></a>
+<span class="sourceLineNo">115</span>    /**<a name="line.115"></a>
+<span class="sourceLineNo">116</span>     * The name (&lt;code&gt;org.apache.commons.logging.diagnostics.dest&lt;/code&gt;)<a name="line.116"></a>
+<span class="sourceLineNo">117</span>     * of the property used to enable internal commons-logging<a name="line.117"></a>
+<span class="sourceLineNo">118</span>     * diagnostic output, in order to get information on what logging<a name="line.118"></a>
+<span class="sourceLineNo">119</span>     * implementations are being discovered, what classloaders they<a name="line.119"></a>
+<span class="sourceLineNo">120</span>     * are loaded through, etc.<a name="line.120"></a>
+<span class="sourceLineNo">121</span>     * &lt;p&gt;<a name="line.121"></a>
+<span class="sourceLineNo">122</span>     * If a system property of this name is set then the value is<a name="line.122"></a>
+<span class="sourceLineNo">123</span>     * assumed to be the name of a file. The special strings<a name="line.123"></a>
+<span class="sourceLineNo">124</span>     * STDOUT or STDERR (case-sensitive) indicate output to<a name="line.124"></a>
+<span class="sourceLineNo">125</span>     * System.out and System.err respectively.<a name="line.125"></a>
+<span class="sourceLineNo">126</span>     * &lt;p&gt;<a name="line.126"></a>
+<span class="sourceLineNo">127</span>     * Diagnostic logging should be used only to debug problematic<a name="line.127"></a>
+<span class="sourceLineNo">128</span>     * configurations and should not be set in normal production use.<a name="line.128"></a>
+<span class="sourceLineNo">129</span>     */<a name="line.129"></a>
+<span class="sourceLineNo">130</span>    public static final String DIAGNOSTICS_DEST_PROPERTY =<a name="line.130"></a>
+<span class="sourceLineNo">131</span>        "org.apache.commons.logging.diagnostics.dest";<a name="line.131"></a>
+<span class="sourceLineNo">132</span><a name="line.132"></a>
+<span class="sourceLineNo">133</span>    /**<a name="line.133"></a>
+<span class="sourceLineNo">134</span>     * When null (the usual case), no diagnostic output will be<a name="line.134"></a>
+<span class="sourceLineNo">135</span>     * generated by LogFactory or LogFactoryImpl. When non-null,<a name="line.135"></a>
+<span class="sourceLineNo">136</span>     * interesting events will be written to the specified object.<a name="line.136"></a>
+<span class="sourceLineNo">137</span>     */<a name="line.137"></a>
+<span class="sourceLineNo">138</span>    private static PrintStream diagnosticsStream = null;<a name="line.138"></a>
+<span class="sourceLineNo">139</span><a name="line.139"></a>
+<span class="sourceLineNo">140</span>    /**<a name="line.140"></a>
+<span class="sourceLineNo">141</span>     * A string that gets prefixed to every message output by the<a name="line.141"></a>
+<span class="sourceLineNo">142</span>     * logDiagnostic method, so that users can clearly see which<a name="line.142"></a>
+<span class="sourceLineNo">143</span>     * LogFactory class is generating the output.<a name="line.143"></a>
+<span class="sourceLineNo">144</span>     */<a name="line.144"></a>
+<span class="sourceLineNo">145</span>    private static final String diagnosticPrefix;<a name="line.145"></a>
+<span class="sourceLineNo">146</span><a name="line.146"></a>
+<span class="sourceLineNo">147</span>    /**<a name="line.147"></a>
+<span class="sourceLineNo">148</span>     * Setting this system property<a name="line.148"></a>
+<span class="sourceLineNo">149</span>     * (&lt;code&gt;org.apache.commons.logging.LogFactory.HashtableImpl&lt;/code&gt;)<a name="line.149"></a>
+<span class="sourceLineNo">150</span>     * value allows the &lt;code&gt;Hashtable&lt;/code&gt; used to store<a name="line.150"></a>
+<span class="sourceLineNo">151</span>     * classloaders to be substituted by an alternative implementation.<a name="line.151"></a>
+<span class="sourceLineNo">152</span>     * &lt;p&gt;<a name="line.152"></a>
+<span class="sourceLineNo">153</span>     * &lt;strong&gt;Note:&lt;/strong&gt; &lt;code&gt;LogFactory&lt;/code&gt; will print:<a name="line.153"></a>
+<span class="sourceLineNo">154</span>     * &lt;code&gt;&lt;pre&gt;<a name="line.154"></a>
+<span class="sourceLineNo">155</span>     * [ERROR] LogFactory: Load of custom hashtable failed&lt;/em&gt;<a name="line.155"></a>
+<span class="sourceLineNo">156</span>     * &lt;/pre&gt;&lt;/code&gt;<a name="line.156"></a>
+<span class="sourceLineNo">157</span>     * to system error and then continue using a standard Hashtable.<a name="line.157"></a>
+<span class="sourceLineNo">158</span>     * &lt;p&gt;<a name="line.158"></a>
+<span class="sourceLineNo">159</span>     * &lt;strong&gt;Usage:&lt;/strong&gt; Set this property when Java is invoked<a name="line.159"></a>
+<span class="sourceLineNo">160</span>     * and &lt;code&gt;LogFactory&lt;/code&gt; will attempt to load a new instance<a name="line.160"></a>
+<span class="sourceLineNo">161</span>     * of the given implementation class.<a name="line.161"></a>
+<span class="sourceLineNo">162</span>     * For example, running the following ant scriplet:<a name="line.162"></a>
+<span class="sourceLineNo">163</span>     * &lt;code&gt;&lt;pre&gt;<a name="line.163"></a>
+<span class="sourceLineNo">164</span>     *  &amp;lt;java classname="${test.runner}" fork="yes" failonerror="${test.failonerror}"&amp;gt;<a name="line.164"></a>
+<span class="sourceLineNo">165</span>     *     ...<a name="line.165"></a>
+<span class="sourceLineNo">166</span>     *     &amp;lt;sysproperty<a name="line.166"></a>
+<span class="sourceLineNo">167</span>     *        key="org.apache.commons.logging.LogFactory.HashtableImpl"<a name="line.167"></a>
+<span class="sourceLineNo">168</span>     *        value="org.apache.commons.logging.AltHashtable"/&amp;gt;<a name="line.168"></a>
+<span class="sourceLineNo">169</span>     *  &amp;lt;/java&amp;gt;<a name="line.169"></a>
+<span class="sourceLineNo">170</span>     * &lt;/pre&gt;&lt;/code&gt;<a name="line.170"></a>
+<span class="sourceLineNo">171</span>     * will mean that &lt;code&gt;LogFactory&lt;/code&gt; will load an instance of<a name="line.171"></a>
+<span class="sourceLineNo">172</span>     * &lt;code&gt;org.apache.commons.logging.AltHashtable&lt;/code&gt;.<a name="line.172"></a>
+<span class="sourceLineNo">173</span>     * &lt;p&gt;<a name="line.173"></a>
+<span class="sourceLineNo">174</span>     * A typical use case is to allow a custom<a name="line.174"></a>
+<span class="sourceLineNo">175</span>     * Hashtable implementation using weak references to be substituted.<a name="line.175"></a>
+<span class="sourceLineNo">176</span>     * This will allow classloaders to be garbage collected without<a name="line.176"></a>
+<span class="sourceLineNo">177</span>     * the need to release them (on 1.3+ JVMs only, of course ;).<a name="line.177"></a>
+<span class="sourceLineNo">178</span>     */<a name="line.178"></a>
+<span class="sourceLineNo">179</span>    public static final String HASHTABLE_IMPLEMENTATION_PROPERTY =<a name="line.179"></a>
+<span class="sourceLineNo">180</span>        "org.apache.commons.logging.LogFactory.HashtableImpl";<a name="line.180"></a>
+<span class="sourceLineNo">181</span><a name="line.181"></a>
+<span class="sourceLineNo">182</span>    /** Name used to load the weak hashtable implementation by names. */<a name="line.182"></a>
+<span class="sourceLineNo">183</span>    private static final String WEAK_HASHTABLE_CLASSNAME =<a name="line.183"></a>
+<span class="sourceLineNo">184</span>        "org.apache.commons.logging.impl.WeakHashtable";<a name="line.184"></a>
+<span class="sourceLineNo">185</span><a name="line.185"></a>
+<span class="sourceLineNo">186</span>    /**<a name="line.186"></a>
+<span class="sourceLineNo">187</span>     * A reference to the classloader that loaded this class. This is the<a name="line.187"></a>
+<span class="sourceLineNo">188</span>     * same as LogFactory.class.getClassLoader(). However computing this<a name="line.188"></a>
+<span class="sourceLineNo">189</span>     * value isn't quite as simple as that, as we potentially need to use<a name="line.189"></a>
+<span class="sourceLineNo">190</span>     * AccessControllers etc. It's more efficient to compute it once and<a name="line.190"></a>
+<span class="sourceLineNo">191</span>     * cache it here.<a name="line.191"></a>
+<span class="sourceLineNo">192</span>     */<a name="line.192"></a>
+<span class="sourceLineNo">193</span>    private static final ClassLoader thisClassLoader;<a name="line.193"></a>
+<span class="sourceLineNo">194</span><a name="line.194"></a>
+<span class="sourceLineNo">195</span>    // ----------------------------------------------------------- Constructors<a name="line.195"></a>
+<span class="sourceLineNo">196</span><a name="line.196"></a>
+<span class="sourceLineNo">197</span>    /**<a name="line.197"></a>
+<span class="sourceLineNo">198</span>     * Protected constructor that is not available for public use.<a name="line.198"></a>
+<span class="sourceLineNo">199</span>     */<a name="line.199"></a>
+<span class="sourceLineNo">200</span>    protected LogFactory() {<a name="line.200"></a>
+<span class="sourceLineNo">201</span>    }<a name="line.201"></a>
+<span class="sourceLineNo">202</span><a name="line.202"></a>
+<span class="sourceLineNo">203</span>    // --------------------------------------------------------- Public Methods<a name="line.203"></a>
+<span class="sourceLineNo">204</span><a name="line.204"></a>
+<span class="sourceLineNo">205</span>    /**<a name="line.205"></a>
+<span class="sourceLineNo">206</span>     * Return the configuration attribute with the specified name (if any),<a name="line.206"></a>
+<span class="sourceLineNo">207</span>     * or &lt;code&gt;null&lt;/code&gt; if there is no such attribute.<a name="line.207"></a>
+<span class="sourceLineNo">208</span>     *<a name="line.208"></a>
+<span class="sourceLineNo">209</span>     * @param name Name of the attribute to return<a name="line.209"></a>
+<span class="sourceLineNo">210</span>     */<a name="line.210"></a>
+<span class="sourceLineNo">211</span>    public abstract Object getAttribute(String name);<a name="line.211"></a>
+<span class="sourceLineNo">212</span><a name="line.212"></a>
+<span class="sourceLineNo">213</span>    /**<a name="line.213"></a>
+<span class="sourceLineNo">214</span>     * Return an array containing the names of all currently defined<a name="line.214"></a>
+<span class="sourceLineNo">215</span>     * configuration attributes.  If there are no such attributes, a zero<a name="line.215"></a>
+<span class="sourceLineNo">216</span>     * length array is returned.<a name="line.216"></a>
+<span class="sourceLineNo">217</span>     */<a name="line.217"></a>
+<span class="sourceLineNo">218</span>    public abstract String[] getAttributeNames();<a name="line.218"></a>
+<span class="sourceLineNo">219</span><a name="line.219"></a>
+<span class="sourceLineNo">220</span>    /**<a name="line.220"></a>
+<span class="sourceLineNo">221</span>     * Convenience method to derive a name from the specified class and<a name="line.221"></a>
+<span class="sourceLineNo">222</span>     * call &lt;code&gt;getInstance(String)&lt;/code&gt; with it.<a name="line.222"></a>
+<span class="sourceLineNo">223</span>     *<a name="line.223"></a>
+<span class="sourceLineNo">224</span>     * @param clazz Class for which a suitable Log name will be derived<a name="line.224"></a>
+<span class="sourceLineNo">225</span>     * @throws LogConfigurationException if a suitable &lt;code&gt;Log&lt;/code&gt;<a name="line.225"></a>
+<span class="sourceLineNo">226</span>     *  instance cannot be returned<a name="line.226"></a>
+<span class="sourceLineNo">227</span>     */<a name="line.227"></a>
+<span class="sourceLineNo">228</span>    public abstract Log getInstance(Class clazz)<a name="line.228"></a>
+<span class="sourceLineNo">229</span>        throws LogConfigurationException;<a name="line.229"></a>
+<span class="sourceLineNo">230</span><a name="line.230"></a>
+<span class="sourceLineNo">231</span>    /**<a name="line.231"></a>
+<span class="sourceLineNo">232</span>     * Construct (if necessary) and return a &lt;code&gt;Log&lt;/code&gt; instance,<a name="line.232"></a>
+<span class="sourceLineNo">233</span>     * using the factory's current set of configuration attributes.<a name="line.233"></a>
+<span class="sourceLineNo">234</span>     * &lt;p&gt;<a name="line.234"></a>
+<span class="sourceLineNo">235</span>     * &lt;strong&gt;NOTE&lt;/strong&gt; - Depending upon the implementation of<a name="line.235"></a>
+<span class="sourceLineNo">236</span>     * the &lt;code&gt;LogFactory&lt;/code&gt; you are using, the &lt;code&gt;Log&lt;/code&gt;<a name="line.236"></a>
+<span class="sourceLineNo">237</span>     * instance you are returned may or may not be local to the current<a name="line.237"></a>
+<span class="sourceLineNo">238</span>     * application, and may or may not be returned again on a subsequent<a name="line.238"></a>
+<span class="sourceLineNo">239</span>     * call with the same name argument.<a name="line.239"></a>
+<span class="sourceLineNo">240</span>     *<a name="line.240"></a>
+<span class="sourceLineNo">241</span>     * @param name Logical name of the &lt;code&gt;Log&lt;/code&gt; instance to be<a name="line.241"></a>
+<span class="sourceLineNo">242</span>     *  returned (the meaning of this name is only known to the underlying<a name="line.242"></a>
+<span class="sourceLineNo">243</span>     *  logging implementation that is being wrapped)<a name="line.243"></a>
+<span class="sourceLineNo">244</span>     * @throws LogConfigurationException if a suitable &lt;code&gt;Log&lt;/code&gt;<a name="line.244"></a>
+<span class="sourceLineNo">245</span>     *  instance cannot be returned<a name="line.245"></a>
+<span class="sourceLineNo">246</span>     */<a name="line.246"></a>
+<span class="sourceLineNo">247</span>    public abstract Log getInstance(String name)<a name="line.247"></a>
+<span class="sourceLineNo">248</span>        throws LogConfigurationException;<a name="line.248"></a>
+<span class="sourceLineNo">249</span><a name="line.249"></a>
+<span class="sourceLineNo">250</span>    /**<a name="line.250"></a>
+<span class="sourceLineNo">251</span>     * Release any internal references to previously created {@link Log}<a name="line.251"></a>
+<span class="sourceLineNo">252</span>     * instances returned by this factory.  This is useful in environments<a name="line.252"></a>
+<span class="sourceLineNo">253</span>     * like servlet containers, which implement application reloading by<a name="line.253"></a>
+<span class="sourceLineNo">254</span>     * throwing away a ClassLoader.  Dangling references to objects in that<a name="line.254"></a>
+<span class="sourceLineNo">255</span>     * class loader would prevent garbage collection.<a name="line.255"></a>
+<span class="sourceLineNo">256</span>     */<a name="line.256"></a>
+<span class="sourceLineNo">257</span>    public abstract void release();<a name="line.257"></a>
+<span class="sourceLineNo">258</span><a name="line.258"></a>
+<span class="sourceLineNo">259</span>    /**<a name="line.259"></a>
+<span class="sourceLineNo">260</span>     * Remove any configuration attribute associated with the specified name.<a name="line.260"></a>
+<span class="sourceLineNo">261</span>     * If there is no such attribute, no action is taken.<a name="line.261"></a>
+<span class="sourceLineNo">262</span>     *<a name="line.262"></a>
+<span class="sourceLineNo">263</span>     * @param name Name of the attribute to remove<a name="line.263"></a>
+<span class="sourceLineNo">264</span>     */<a name="line.264"></a>
+<span class="sourceLineNo">265</span>    public abstract void removeAttribute(String name);<a name="line.265"></a>
+<span class="sourceLineNo">266</span><a name="line.266"></a>
+<span class="sourceLineNo">267</span>    /**<a name="line.267"></a>
+<span class="sourceLineNo">268</span>     * Set the configuration attribute with the specified name.  Calling<a name="line.268"></a>
+<span class="sourceLineNo">269</span>     * this with a &lt;code&gt;null&lt;/code&gt; value is equivalent to calling<a name="line.269"></a>
+<span class="sourceLineNo">270</span>     * &lt;code&gt;removeAttribute(name)&lt;/code&gt;.<a name="line.270"></a>
+<span class="sourceLineNo">271</span>     *<a name="line.271"></a>
+<span class="sourceLineNo">272</span>     * @param name Name of the attribute to set<a name="line.272"></a>
+<span class="sourceLineNo">273</span>     * @param value Value of the attribute to set, or &lt;code&gt;null&lt;/code&gt;<a name="line.273"></a>
+<span class="sourceLineNo">274</span>     *  to remove any setting for this attribute<a name="line.274"></a>
+<span class="sourceLineNo">275</span>     */<a name="line.275"></a>
+<span class="sourceLineNo">276</span>    public abstract void setAttribute(String name, Object value);<a name="line.276"></a>
+<span class="sourceLineNo">277</span><a name="line.277"></a>
+<span class="sourceLineNo">278</span>    // ------------------------------------------------------- Static Variables<a name="line.278"></a>
+<span class="sourceLineNo">279</span><a name="line.279"></a>
+<span class="sourceLineNo">280</span>    /**<a name="line.280"></a>
+<span class="sourceLineNo">281</span>     * The previously constructed &lt;code&gt;LogFactory&lt;/code&gt; instances, keyed by<a name="line.281"></a>
+<span class="sourceLineNo">282</span>     * the &lt;code&gt;ClassLoader&lt;/code&gt; with which it was created.<a name="line.282"></a>
+<span class="sourceLineNo">283</span>     */<a name="line.283"></a>
+<span class="sourceLineNo">284</span>    protected static Hashtable factories = null;<a name="line.284"></a>
+<span class="sourceLineNo">285</span><a name="line.285"></a>
+<span class="sourceLineNo">286</span>    /**<a name="line.286"></a>
+<span class="sourceLineNo">287</span>     * Previously constructed &lt;code&gt;LogFactory&lt;/code&gt; instance as in the<a name="line.287"></a>
+<span class="sourceLineNo">288</span>     * &lt;code&gt;factories&lt;/code&gt; map, but for the case where<a name="line.288"></a>
+<span class="sourceLineNo">289</span>     * &lt;code&gt;getClassLoader&lt;/code&gt; returns &lt;code&gt;null&lt;/code&gt;.<a name="line.289"></a>
+<span class="sourceLineNo">290</span>     * This can happen when:<a name="line.290"></a>
+<span class="sourceLineNo">291</span>     * &lt;ul&gt;<a name="line.291"></a>
+<span class="sourceLineNo">292</span>     * &lt;li&gt;using JDK1.1 and the calling code is loaded via the system<a name="line.292"></a>
+<span class="sourceLineNo">293</span>     *  classloader (very common)&lt;/li&gt;<a name="line.293"></a>
+<span class="sourceLineNo">294</span>     * &lt;li&gt;using JDK1.2+ and the calling code is loaded via the boot<a name="line.294"></a>
+<span class="sourceLineNo">295</span>     *  classloader (only likely for embedded systems work).&lt;/li&gt;<a name="line.295"></a>
+<span class="sourceLineNo">296</span>     * &lt;/ul&gt;<a name="line.296"></a>
+<span class="sourceLineNo">297</span>     * Note that &lt;code&gt;factories&lt;/code&gt; is a &lt;i&gt;Hashtable&lt;/i&gt; (not a HashMap),<a name="line.297"></a>
+<span class="sourceLineNo">298</span>     * and hashtables don't allow null as a key.<a name="line.298"></a>
+<span class="sourceLineNo">299</span>     * @deprecated since 1.1.2<a name="line.299"></a>
+<span class="sourceLineNo">300</span>     */<a name="line.300"></a>
+<span class="sourceLineNo">301</span>    protected static volatile LogFactory nullClassLoaderFactory = null;<a name="line.301"></a>
+<span class="sourceLineNo">302</span><a name="line.302"></a>
+<span class="sourceLineNo">303</span>    /**<a name="line.303"></a>
+<span class="sourceLineNo">304</span>     * Create the hashtable which will be used to store a map of<a name="line.304"></a>
+<span class="sourceLineNo">305</span>     * (context-classloader -&gt; logfactory-object). Version 1.2+ of Java<a name="line.305"></a>
+<span class="sourceLineNo">306</span>     * supports "weak references", allowing a custom Hashtable class<a name="line.306"></a>
+<span class="sourceLineNo">307</span>     * to be used which uses only weak references to its keys. Using weak<a name="line.307"></a>
+<span class="sourceLineNo">308</span>     * references can fix memory leaks on webapp unload in some cases (though<a name="line.308"></a>
+<span class="sourceLineNo">309</span>     * not all). Version 1.1 of Java does not support weak references, so we<a name="line.309"></a>
+<span class="sourceLineNo">310</span>     * must dynamically determine which we are using. And just for fun, this<a name="line.310"></a>
+<span class="sourceLineNo">311</span>     * code also supports the ability for a system property to specify an<a name="line.311"></a>
+<span class="sourceLineNo">312</span>     * arbitrary Hashtable implementation name.<a name="line.312"></a>
+<span class="sourceLineNo">313</span>     * &lt;p&gt;<a name="line.313"></a>
+<span class="sourceLineNo">314</span>     * Note that the correct way to ensure no memory leaks occur is to ensure<a name="line.314"></a>
+<span class="sourceLineNo">315</span>     * that LogFactory.release(contextClassLoader) is called whenever a<a name="line.315"></a>
+<span class="sourceLineNo">316</span>     * webapp is undeployed.<a name="line.316"></a>
+<span class="sourceLineNo">317</span>     */<a name="line.317"></a>
+<span class="sourceLineNo">318</span>    private static final Hashtable createFactoryStore() {<a name="line.318"></a>
+<span class="sourceLineNo">319</span>        Hashtable result = null;<a name="line.319"></a>
+<span class="sourceLineNo">320</span>        String storeImplementationClass;<a name="line.320"></a>
+<span class="sourceLineNo">321</span>        try {<a name="line.321"></a>
+<span class="sourceLineNo">322</span>            storeImplementationClass = getSystemProperty(HASHTABLE_IMPLEMENTATION_PROPERTY, null);<a name="line.322"></a>
+<span class="sourceLineNo">323</span>        } catch (SecurityException ex) {<a name="line.323"></a>
+<span class="sourceLineNo">324</span>            // Permissions don't allow this to be accessed. Default to the "modern"<a name="line.324"></a>
+<span class="sourceLineNo">325</span>            // weak hashtable implementation if it is available.<a name="line.325"></a>
+<span class="sourceLineNo">326</span>            storeImplementationClass = null;<a name="line.326"></a>
+<span class="sourceLineNo">327</span>        }<a name="line.327"></a>
+<span class="sourceLineNo">328</span><a name="line.328"></a>
+<span class="sourceLineNo">329</span>        if (storeImplementationClass == null) {<a name="line.329"></a>
+<span class="sourceLineNo">330</span>            storeImplementationClass = WEAK_HASHTABLE_CLASSNAME;<a name="line.330"></a>
+<span class="sourceLineNo">331</span>        }<a name="line.331"></a>
+<span class="sourceLineNo">332</span>        try {<a name="line.332"></a>
+<span class="sourceLineNo">333</span>            Class implementationClass = Class.forName(storeImplementationClass);<a name="line.333"></a>
+<span class="sourceLineNo">334</span>            result = (Hashtable) implementationClass.newInstance();<a name="line.334"></a>
+<span class="sourceLineNo">335</span>        } catch (Throwable t) {<a name="line.335"></a>
+<span class="sourceLineNo">336</span>            handleThrowable(t); // may re-throw t<a name="line.336"></a>
+<span class="sourceLineNo">337</span><a name="line.337"></a>
+<span class="sourceLineNo">338</span>            // ignore<a name="line.338"></a>
+<span class="sourceLineNo">339</span>            if (!WEAK_HASHTABLE_CLASSNAME.equals(storeImplementationClass)) {<a name="line.339"></a>
+<span class="sourceLineNo">340</span>                // if the user's trying to set up a custom implementation, give a clue<a name="line.340"></a>
+<span class="sourceLineNo">341</span>                if (isDiagnosticsEnabled()) {<a name="line.341"></a>
+<span class="sourceLineNo">342</span>                    // use internal logging to issue the warning<a name="line.342"></a>
+<span class="sourceLineNo">343</span>                    logDiagnostic("[ERROR] LogFactory: Load of custom hashtable failed");<a name="line.343"></a>
+<span class="sourceLineNo">344</span>                } else {<a name="line.344"></a>
+<span class="sourceLineNo">345</span>                    // we *really* want this output, even if diagnostics weren't<a name="line.345"></a>
+<span class="sourceLineNo">346</span>                    // explicitly enabled by the user.<a name="line.346"></a>
+<span class="sourceLineNo">347</span>                    System.err.println("[ERROR] LogFactory: Load of custom hashtable failed");<a name="line.347"></a>
+<span class="sourceLineNo">348</span>                }<a name="line.348"></a>
+<span class="sourceLineNo">349</span>            }<a name="line.349"></a>
+<span class="sourceLineNo">350</span>        }<a name="line.350"></a>
+<span class="sourceLineNo">351</span>        if (result == null) {<a name="line.351"></a>
+<span class="sourceLineNo">352</span>            result = new Hashtable();<a name="line.352"></a>
+<span class="sourceLineNo">353</span>        }<a name="line.353"></a>
+<span class="sourceLineNo">354</span>        return result;<a name="line.354"></a>
+<span class="sourceLineNo">355</span>    }<a name="line.355"></a>
+<span class="sourceLineNo">356</span><a name="line.356"></a>
+<span class="sourceLineNo">357</span>    // --------------------------------------------------------- Static Methods<a name="line.357"></a>
+<span class="sourceLineNo">358</span><a name="line.358"></a>
+<span class="sourceLineNo">359</span>    /** Utility method to safely trim a string. */<a name="line.359"></a>
+<span class="sourceLineNo">360</span>    private static String trim(String src) {<a name="line.360"></a>
+<span class="sourceLineNo">361</span>        if (src == null) {<a name="line.361"></a>
+<span class="sourceLineNo">362</span>            return null;<a name="line.362"></a>
+<span class="sourceLineNo">363</span>        }<a name="line.363"></a>
+<span class="sourceLineNo">364</span>        return src.trim();<a name="line.364"></a>
+<span class="sourceLineNo">365</span>    }<a name="line.365"></a>
+<span class="sourceLineNo">366</span><a name="line.366"></a>
+<span class="sourceLineNo">367</span>    /**<a name="line.367"></a>
+<span class="sourceLineNo">368</span>     * Checks whether the supplied Throwable is one that needs to be<a name="line.368"></a>
+<span class="sourceLineNo">369</span>     * re-thrown and ignores all others.<a name="line.369"></a>
+<span class="sourceLineNo">370</span>     *<a name="line.370"></a>
+<span class="sourceLineNo">371</span>     * The following errors are re-thrown:<a name="line.371"></a>
+<span class="sourceLineNo">372</span>     * &lt;ul&gt;<a name="line.372"></a>
+<span class="sourceLineNo">373</span>     *   &lt;li&gt;ThreadDeath&lt;/li&gt;<a name="line.373"></a>
+<span class="sourceLineNo">374</span>     *   &lt;li&gt;VirtualMachineError&lt;/li&gt;<a name="line.374"></a>
+<span class="sourceLineNo">375</span>     * &lt;/ul&gt;<a name="line.375"></a>
+<span class="sourceLineNo">376</span>     *<a name="line.376"></a>
+<span class="sourceLineNo">377</span>     * @param t the Throwable to check<a name="line.377"></a>
+<span class="sourceLineNo">378</span>     */<a name="line.378"></a>
+<span class="sourceLineNo">379</span>    protected static void handleThrowable(Throwable t) {<a name="line.379"></a>
+<span class="sourceLineNo">380</span>        if (t instanceof ThreadDeath) {<a name="line.380"></a>
+<span class="sourceLineNo">381</span>            throw (ThreadDeath) t;<a name="line.381"></a>
+<span class="sourceLineNo">382</span>        }<a name="line.382"></a>
+<span class="sourceLineNo">383</span>        if (t instanceof VirtualMachineError) {<a name="line.383"></a>
+<span class="sourceLineNo">384</span>            throw (VirtualMachineError) t;<a name="line.384"></a>
+<span class="sourceLineNo">385</span>        }<a name="line.385"></a>
+<span class="sourceLineNo">386</span>        // All other instances of Throwable will be silently ignored<a name="line.386"></a>
+<span class="sourceLineNo">387</span>    }<a name="line.387"></a>
+<span class="sourceLineNo">388</span><a name="line.388"></a>
+<span class="sourceLineNo">389</span>    /**<a name="line.389"></a>
+<span class="sourceLineNo">390</span>     * Construct (if necessary) and return a &lt;code&gt;LogFactory&lt;/code&gt;<a name="line.390"></a>
+<span class="sourceLineNo">391</span>     * instance, using the following ordered lookup procedure to determine<a name="line.391"></a>
+<span class="sourceLineNo">392</span>     * the name of the implementation class to be loaded.<a name="line.392"></a>
+<span class="sourceLineNo">393</span>     * &lt;p&gt;<a name="line.393"></a>
+<span class="sourceLineNo">394</span>     * &lt;ul&gt;<a name="line.394"></a>
+<span class="sourceLineNo">395</span>     * &lt;li&gt;The &lt;code&gt;org.apache.commons.logging.LogFactory&lt;/code&gt; system<a name="line.395"></a>
+<span class="sourceLineNo">396</span>     *     property.&lt;/li&gt;<a name="line.396"></a>
+<span class="sourceLineNo">397</span>     * &lt;li&gt;The JDK 1.3 Service Discovery mechanism&lt;/li&gt;<a name="line.397"></a>
+<span class="sourceLineNo">398</span>     * &lt;li&gt;Use the properties file &lt;code&gt;commons-logging.properties&lt;/code&gt;<a name="line.398"></a>
+<span class="sourceLineNo">399</span>     *     file, if found in the class path of this class.  The configuration<a name="line.399"></a>
+<span class="sourceLineNo">400</span>     *     file is in standard &lt;code&gt;java.util.Properties&lt;/code&gt; format and<a name="line.400"></a>
+<span class="sourceLineNo">401</span>     *     contains the fully qualified name of the implementation class<a name="line.401"></a>
+<span class="sourceLineNo">402</span>     *     with the key being the system property defined above.&lt;/li&gt;<a name="line.402"></a>
+<span class="sourceLineNo">403</span>     * &lt;li&gt;Fall back to a default implementation class<a name="line.403"></a>
+<span class="sourceLineNo">404</span>     *     (&lt;code&gt;org.apache.commons.logging.impl.LogFactoryImpl&lt;/code&gt;).&lt;/li&gt;<a name="line.404"></a>
+<span class="sourceLineNo">405</span>     * &lt;/ul&gt;<a name="line.405"></a>
+<span class="sourceLineNo">406</span>     * &lt;p&gt;<a name="line.406"></a>
+<span class="sourceLineNo">407</span>     * &lt;em&gt;NOTE&lt;/em&gt; - If the properties file method of identifying the<a name="line.407"></a>
+<span class="sourceLineNo">408</span>     * &lt;code&gt;LogFactory&lt;/code&gt; implementation class is utilized, all of the<a name="line.408"></a>
+<span class="sourceLineNo">409</span>     * properties defined in this file will be set as configuration attributes<a name="line.409"></a>
+<span class="sourceLineNo">410</span>     * on the corresponding &lt;code&gt;LogFactory&lt;/code&gt; instance.<a name="line.410"></a>
+<span class="sourceLineNo">411</span>     * &lt;p&gt;<a name="line.411"></a>
+<span class="sourceLineNo">412</span>     * &lt;em&gt;NOTE&lt;/em&gt; - In a multi-threaded environment it is possible<a name="line.412"></a>
+<span class="sourceLineNo">413</span>     * that two different instances will be returned for the same<a name="line.413"></a>
+<span class="sourceLineNo">414</span>     * classloader environment.<a name="line.414"></a>
+<span class="sourceLineNo">415</span>     *<a name="line.415"></a>
+<span class="sourceLineNo">416</span>     * @throws LogConfigurationException if the implementation class is not<a name="line.416"></a>
+<span class="sourceLineNo">417</span>     *  available or cannot be instantiated.<a name="line.417"></a>
+<span class="sourceLineNo">418</span>     */<a name="line.418"></a>
+<span class="sourceLineNo">419</span>    public static LogFactory getFactory() throws LogConfigurationException {<a name="line.419"></a>
+<span class="sourceLineNo">420</span>        // Identify the class loader we will be using<a name="line.420"></a>
+<span class="sourceLineNo">421</span>        ClassLoader contextClassLoader = getContextClassLoaderInternal();<a name="line.421"></a>
+<span class="sourceLineNo">422</span><a name="line.422"></a>
+<span class="sourceLineNo">423</span>        if (contextClassLoader == null) {<a name="line.423"></a>
+<span class="sourceLineNo">424</span>            // This is an odd enough situation to report about. This<a name="line.424"></a>
+<span class="sourceLineNo">425</span>            // output will be a nuisance on JDK1.1, as the system<a name="line.425"></a>
+<span class="sourceLineNo">426</span>            // classloader is null in that environment.<a name="line.426"></a>
+<span class="sourceLineNo">427</span>            if (isDiagnosticsEnabled()) {<a name="line.427"></a>
+<span class="sourceLineNo">428</span>                logDiagnostic("Context classloader is null.");<a name="line.428"></a>
+<span class="sourceLineNo">429</span>            }<a name="line.429"></a>
+<span class="sourceLineNo">430</span>        }<a name="line.430"></a>
+<span class="sourceLineNo">431</span><a name="line.431"></a>
+<span class="sourceLineNo">432</span>        // Return any previously registered factory for this class loader<a name="line.432"></a>
+<span class="sourceLineNo">433</span>        LogFactory factory = getCachedFactory(contextClassLoader);<a name="line.433"></a>
+<span class="sourceLineNo">434</span>        if (factory != null) {<a name="line.434"></a>
+<span class="sourceLineNo">435</span>            return factory;<a name="line.435"></a>
+<span class="sourceLineNo">436</span>        }<a name="line.436"></a>
+<span class="sourceLineNo">437</span><a name="line.437"></a>
+<span class="sourceLineNo">438</span>        if (isDiagnosticsEnabled()) {<a name="line.438"></a>
+<span class="sourceLineNo">439</span>            logDiagnostic(<a name="line.439"></a>
+<span class="sourceLineNo">440</span>                    "[LOOKUP] LogFactory implementation requested for the first time for context classloader " +<a name="line.440"></a>
+<span class="sourceLineNo">441</span>                    objectId(contextClassLoader));<a name="line.441"></a>
+<span class="sourceLineNo">442</span>            logHierarchy("[LOOKUP] ", contextClassLoader);<a name="line.442"></a>
+<span class="sourceLineNo">443</span>        }<a name="line.443"></a>
+<span class="sourceLineNo">444</span><a name="line.444"></a>
+<span class="sourceLineNo">445</span>        // Load properties file.<a name="line.445"></a>
+<span class="sourceLineNo">446</span>        //<a name="line.446"></a>
+<span class="sourceLineNo">447</span>        // If the properties file exists, then its contents are used as<a name="line.447"></a>
+<span class="sourceLineNo">448</span>        // "attributes" on the LogFactory implementation class. One particular<a name="line.448"></a>
+<span class="sourceLineNo">449</span>        // property may also control which LogFactory concrete subclass is<a name="line.449"></a>
+<span class="sourceLineNo">450</span>        // used, but only if other discovery mechanisms fail..<a name="line.450"></a>
+<span class="sourceLineNo">451</span>        //<a name="line.451"></a>
+<span class="sourceLineNo">452</span>        // As the properties file (if it exists) will be used one way or<a name="line.452"></a>
+<span class="sourceLineNo">453</span>        // another in the end we may as well look for it first.<a name="line.453"></a>
+<span class="sourceLineNo">454</span><a name="line.454"></a>
+<span class="sourceLineNo">455</span>        Properties props = getConfigurationFile(contextClassLoader, FACTORY_PROPERTIES);<a name="line.455"></a>
+<span class="sourceLineNo">456</span><a name="line.456"></a>
+<span class="sourceLineNo">457</span>        // Determine whether we will be using the thread context class loader to<a name="line.457"></a>
+<span class="sourceLineNo">458</span>        // load logging classes or not by checking the loaded properties file (if any).<a name="line.458"></a>
+<span class="sourceLineNo">459</span>        ClassLoader baseClassLoader = contextClassLoader;<a name="line.459"></a>
+<span class="sourceLineNo">460</span>        if (props != null) {<a name="line.460"></a>
+<span class="sourceLineNo">461</span>            String useTCCLStr = props.getProperty(TCCL_KEY);<a name="line.461"></a>
+<span class="sourceLineNo">462</span>            if (useTCCLStr != null) {<a name="line.462"></a>
+<span class="sourceLineNo">463</span>                // The Boolean.valueOf(useTCCLStr).booleanValue() formulation<a name="line.463"></a>
+<span class="sourceLineNo">464</span>                // is required for Java 1.2 compatibility.<a name="line.464"></a>
+<span class="sourceLineNo">465</span>                if (Boolean.valueOf(useTCCLStr).booleanValue() == false) {<a name="line.465"></a>
+<span class="sourceLineNo">466</span>                    // Don't use current context classloader when locating any<a name="line.466"></a>
+<span class="sourceLineNo">467</span>                    // LogFactory or Log classes, just use the class that loaded<a name="line.467"></a>
+<span class="sourceLineNo">468</span>                    // this abstract class. When this class is deployed in a shared<a name="line.468"></a>
+<span class="sourceLineNo">469</span>                    // classpath of a container, it means webapps cannot deploy their<a name="line.469"></a>
+<span class="sourceLineNo">470</span>                    // own logging implementations. It also means that it is up to the<a name="line.470"></a>
+<span class="sourceLineNo">471</span>                    // implementation whether to load library-specific config files<a name="line.471"></a>
+<span class="sourceLineNo">472</span>                    // from the TCCL or not.<a name="line.472"></a>
+<span class="sourceLineNo">473</span>                    baseClassLoader = thisClassLoader;<a name="line.473"></a>
+<span class="sourceLineNo">474</span>                }<a name="line.474"></a>
+<span class="sourceLineNo">475</span>            }<a name="line.475"></a>
+<span class="sourceLineNo">476</span>        }<a name="line.476"></a>
+<span class="sourceLineNo">477</span><a name="line.477"></a>
+<span class="sourceLineNo">478</span>        // Determine which concrete LogFactory subclass to use.<a name="line.478"></a>
+<span class="sourceLineNo">479</span>        // First, try a global system property<a name="line.479"></a>
+<span class="sourceLineNo">480</span>        if (isDiagnosticsEnabled()) {<a name="line.480"></a>
+<span class="sourceLineNo">481</span>            logDiagnostic("[LOOKUP] Looking for system property [" + FACTORY_PROPERTY +<a name="line.481"></a>
+<span class="sourceLineNo">482</span>                          "] to define the LogFactory subclass to use...");<a name="line.482"></a>
+<span class="sourceLineNo">483</span>        }<a name="line.483"></a>
+<span class="sourceLineNo">484</span><a name="line.484"></a>
+<span class="sourceLineNo">485</span>        try {<a name="line.485"></a>
+<span class="sourceLineNo">486</span>            String factoryClass = getSystemProperty(FACTORY_PROPERTY, null);<a name="line.486"></a>
+<span class="sourceLineNo">487</span>            if (factoryClass != null) {<a name="line.487"></a>
+<span class="sourceLineNo">488</span>                if (isDiagnosticsEnabled()) {<a name="line.488"></a>
+<span class="sourceLineNo">489</span>                    logDiagnostic("[LOOKUP] Creating an instance of LogFactory class '" + factoryClass +<a name="line.489"></a>
+<span class="sourceLineNo">490</span>                                  "' as specified by system property " + FACTORY_PROPERTY);<a name="line.490"></a>
+<span class="sourceLineNo">491</span>                }<a name="line.491"></a>
+<span class="sourceLineNo">492</span>                factory = newFactory(factoryClass, baseClassLoader, contextClassLoader);<a name="line.492"></a>
+<span class="sourceLineNo">493</span>            } else {<a name="line.493"></a>
+<span class="sourceLineNo">494</span>                if (isDiagnosticsEnabled()) {<a name="line.494"></a>
+<span class="sourceLineNo">495</span>                    logDiagnostic("[LOOKUP] No system property [" + FACTORY_PROPERTY + "] defined.");<a name="line.495"></a>
+<span class="sourceLineNo">496</span>                }<a name="line.496"></a>
+<span class="sourceLineNo">497</span>            }<a name="line.497"></a>
+<span class="sourceLineNo">498</span>        } catch (SecurityException e) {<a name="line.498"></a>
+<span class="sourceLineNo">499</span>            if (isDiagnosticsEnabled()) {<a name="line.499"></a>
+<span class="sourceLineNo">500</span>                logDiagnostic("[LOOKUP] A security exception occurred while trying to create an" +<a name="line.500"></a>
+<span class="sourceLineNo">501</span>                              " instance of the custom factory class" + ": [" + trim(e.getMessage()) +<a name="line.501"></a>
+<span class="sourceLineNo">502</span>                              "]. Trying alternative implementations...");<a name="line.502"></a>
+<span class="sourceLineNo">503</span>            }<a name="line.503"></a>
+<span class="sourceLineNo">504</span>            // ignore<a name="line.504"></a>
+<span class="sourceLineNo">505</span>        } catch (RuntimeException e) {<a name="line.505"></a>
+<span class="sourceLineNo">506</span>            // This is not consistent with the behaviour when a bad LogFactory class is<a name="line.506"></a>
+<span class="sourceLineNo">507</span>            // specified in a services file.<a name="line.507"></a>
+<span class="sourceLineNo">508</span>            //<a name="line.508"></a>
+<span class="sourceLineNo">509</span>            // One possible exception that can occur here is a ClassCastException when<a name="line.509"></a>
+<span class="sourceLineNo">510</span>            // the specified class wasn't castable to this LogFactory type.<a name="line.510"></a>
+<span class="sourceLineNo">511</span>            if (isDiagnosticsEnabled()) {<a name="line.511"></a>
+<span class="sourceLineNo">512</span>                logDiagnostic("[LOOKUP] An exception occurred while trying to create an" +<a name="line.512"></a>
+<span class="sourceLineNo">513</span>                              " instance of the custom factory class" + ": [" +<a name="line.513"></a>
+<span class="sourceLineNo">514</span>                              trim(e.getMessage()) +<a name="line.514"></a>
+<span class="sourceLineNo">515</span>                              "] as specified by a system property.");<a name="line.515"></a>
+<span class="sourceLineNo">516</span>            }<a name="line.516"></a>
+<span class="sourceLineNo">517</span>            throw e;<a name="line.517"></a>
+<span class="sourceLineNo">518</span>        }<a name="line.518"></a>
+<span class="sourceLineNo">519</span><a name="line.519"></a>
+<span class="sourceLineNo">520</span>        // Second, try to find a service by using the JDK1.3 class<a name="line.520"></a>
+<span class="sourceLineNo">521</span>        // discovery mechanism, which involves putting a file with the name<a name="line.521"></a>
+<span class="sourceLineNo">522</span>        // of an interface class in the META-INF/services directory, where the<a name="line.522"></a>
+<span class="sourceLineNo">523</span>        // contents of the file is a single line specifying a concrete class<a name="line.523"></a>
+<span class="sourceLineNo">524</span>        // that implements the desired interface.<a name="line.524"></a>
+<span class="sourceLineNo">525</span><a name="line.525"></a>
+<span class="sourceLineNo">526</span>        if (factory == null) {<a name="line.526"></a>
+<span class="sourceLineNo">527</span>            if (isDiagnosticsEnabled()) {<a name="line.527"></a>
+<span class="sourceLineNo">528</span>                logDiagnostic("[LOOKUP] Looking for a resource file of name [" + SERVICE_ID +<a name="line.528"></a>
+<span class="sourceLineNo">529</span>                              "] to define the LogFactory subclass to use...");<a name="line.529"></a>
+<span class="sourceLineNo">530</span>            }<a name="line.530"></a>
+<span class="sourceLineNo">531</span>            try {<a name="line.531"></a>
+<span class="sourceLineNo">532</span>                final InputStream is = getResourceAsStream(contextClassLoader, SERVICE_ID);<a name="line.532"></a>
+<span class="sourceLineNo">533</span><a name="line.533"></a>
+<span class="sourceLineNo">534</span>                if( is != null ) {<a name="line.534"></a>
+<span class="sourceLineNo">535</span>                    // This code is needed by EBCDIC and other strange systems.<a name="line.535"></a>
+<span class="sourceLineNo">536</span>                    // It's a fix for bugs reported in xerces<a name="line.536"></a>
+<span class="sourceLineNo">537</span>                    BufferedReader rd;<a name="line.537"></a>
+<span class="sourceLineNo">538</span>                    try {<a name="line.538"></a>
+<span class="sourceLineNo">539</span>                        rd = new BufferedReader(new InputStreamReader(is, "UTF-8"));<a name="line.539"></a>
+<span class="sourceLineNo">540</span>                    } catch (java.io.UnsupportedEncodingException e) {<a name="line.540"></a>
+<span class="sourceLineNo">541</span>                        rd = new BufferedReader(new InputStreamReader(is));<a name="line.541"></a>
+<span class="sourceLineNo">542</span>                    }<a name="line.542"></a>
+<span class="sourceLineNo">543</span><a name="line.543"></a>
+<span class="sourceLineNo">544</span>                    String factoryClassName = rd.readLine();<a name="line.544"></a>
+<span class="sourceLineNo">545</span>                    rd.close();<a name="line.545"></a>
+<span class="sourceLineNo">546</span><a name="line.546"></a>
+<span class="sourceLineNo">547</span>                    if (factoryClassName != null &amp;&amp; ! "".equals(factoryClassName)) {<a name="line.547"></a>
+<span class="sourceLineNo">548</span>                        if (isDiagnosticsEnabled()) {<a name="line.548"></a>
+<span class="sourceLineNo">549</span>                            logDiagnostic("[LOOKUP]  Creating an instance of LogFactory class " +<a name="line.549"></a>
+<span class="sourceLineNo">550</span>                                          factoryClassName +<a name="line.550"></a>
+<span class="sourceLineNo">551</span>                                          " as specified by file '" + SERVICE_ID +<a name="line.551"></a>
+<span class="sourceLineNo">552</span>                                          "' which was present in the path of the context classloader.");<a name="line.552"></a>
+<span class="sourceLineNo">553</span>                        }<a name="line.553"></a>
+<span class="sourceLineNo">554</span>                        factory = newFactory(factoryClassName, baseClassLoader, contextClassLoader );<a name="line.554"></a>
+<span class="sourceLineNo">555</span>                    }<a name="line.555"></a>
+<span class="sourceLineNo">556</span>                } else {<a name="line.556"></a>
+<span class="sourceLineNo">557</span>                    // is == null<a name="line.557"></a>
+<span class="sourceLineNo">558</span>                    if (isDiagnosticsEnabled()) {<a name="line.558"></a>
+<span class="sourceLineNo">559</span>                        logDiagnostic("[LOOKUP] No resource file with name '" + SERVICE_ID + "' found.");<a name="line.559"></a>
+<span class="sourceLineNo">560</span>                    }<a name="line.560"></a>
+<span class="sourceLineNo">561</span>                }<a name="line.561"></a>
+<span class="sourceLineNo">562</span>            } catch (Exception ex) {<a name="line.562"></a>
+<span class="sourceLineNo">563</span>                // note: if the specified LogFactory class wasn't compatible with LogFactory<a name="line.563"></a>
+<span class="sourceLineNo">564</span>                // for some reason, a ClassCastException will be caught here, and attempts will<a name="line.564"></a>
+<span class="sourceLineNo">565</span>                // continue to find a compatible class.<a name="line.565"></a>
+<span class="sourceLineNo">566</span>                if (isDiagnosticsEnabled()) {<a name="line.566"></a>
+<span class="sourceLineNo">567</span>                    logDiagnostic(<a name="line.567"></a>
+<span class="sourceLineNo">568</span>                        "[LOOKUP] A security exception occurred while trying to create an" +<a name="line.568"></a>
+<span class="sourceLineNo">569</span>                        " instance of the custom factory class" +<a name="line.569"></a>
+<span class="sourceLineNo">570</span>                        ": [" + trim(ex.getMessage()) +<a name="line.570"></a>
+<span class="sourceLineNo">571</span>                        "]. Trying alternative implementations...");<a name="line.571"></a>
+<span class="sourceLineNo">572</span>                }<a name="line.572"></a>
+<span class="sourceLineNo">573</span>                // ignore<a name="line.573"></a>
+<span class="sourceLineNo">574</span>            }<a name="line.574"></a>
+<span class="sourceLineNo">575</span>        }<a name="line.575"></a>
+<span class="sourceLineNo">576</span><a name="line.576"></a>
+<span class="sourceLineNo">577</span>        // Third try looking into the properties file read earlier (if found)<a name="line.577"></a>
+<span class="sourceLineNo">578</span><a name="line.578"></a>
+<span class="sourceLineNo">579</span>        if (factory == null) {<a name="line.579"></a>
+<span class="sourceLineNo">580</span>            if (props != null) {<a name="line.580"></a>
+<span class="sourceLineNo">581</span>                if (isDiagnosticsEnabled()) {<a name="line.581"></a>
+<span class="sourceLineNo">582</span>                    logDiagnostic(<a name="line.582"></a>
+<span class="sourceLineNo">583</span>                        "[LOOKUP] Looking in properties file for entry with key '" + FACTORY_PROPERTY +<a name="line.583"></a>
+<span class="sourceLineNo">584</span>                        "' to define the LogFactory subclass to use...");<a name="line.584"></a>
+<span class="sourceLineNo">585</span>                }<a name="line.585"></a>
+<span class="sourceLineNo">586</span>                String factoryClass = props.getProperty(FACTORY_PROPERTY);<a name="line.586"></a>
+<span class="sourceLineNo">587</span>                if (factoryClass != null) {<a name="line.587"></a>
+<span class="sourceLineNo">588</span>                    if (isDiagnosticsEnabled()) {<a name="line.588"></a>
+<span class="sourceLineNo">589</span>                        logDiagnostic(<a name="line.589"></a>
+<span class="sourceLineNo">590</span>                            "[LOOKUP] Properties file specifies LogFactory subclass '" + factoryClass + "'");<a name="line.590"></a>
+<span class="sourceLineNo">591</span>                    }<a name="line.591"></a>
+<span class="sourceLineNo">592</span>                    factory = newFactory(factoryClass, baseClassLoader, contextClassLoader);<a name="line.592"></a>
+<span class="sourceLineNo">593</span><a name="line.593"></a>
+<span class="sourceLineNo">594</span>                    // TODO: think about whether we need to handle exceptions from newFactory<a name="line.594"></a>
+<span class="sourceLineNo">595</span>                } else {<a name="line.595"></a>
+<span class="sourceLineNo">596</span>                    if (isDiagnosticsEnabled()) {<a name="line.596"></a>
+<span class="sourceLineNo">597</span>                        logDiagnostic("[LOOKUP] Properties file has no entry specifying LogFactory subclass.");<a name="line.597"></a>
+<span class="sourceLineNo">598</span>                    }<a name="line.598"></a>
+<span class="sourceLineNo">599</span>                }<a name="line.599"></a>
+<span class="sourceLineNo">600</span>            } else {<a name="line.600"></a>
+<span class="sourceLineNo">601</span>                if (isDiagnosticsEnabled()) {<a name="line.601"></a>
+<span class="sourceLineNo">602</span>                    logDiagnostic("[LOOKUP] No properties file available to determine" + " LogFactory subclass from..");<a name="line.602"></a>
+<span class="sourceLineNo">603</span>                }<a name="line.603"></a>
+<span class="sourceLineNo">604</span>            }<a name="line.604"></a>
+<span class="sourceLineNo">605</span>        }<a name="line.605"></a>
+<span class="sourceLineNo">606</span><a name="line.606"></a>
+<span class="sourceLineNo">607</span>        // Fourth, try the fallback implementation class<a name="line.607"></a>
+<span class="sourceLineNo">608</span><a name="line.608"></a>
+<span class="sourceLineNo">609</span>        if (factory == null) {<a name="line.609"></a>
+<span class="sourceLineNo">610</span>            if (isDiagnosticsEnabled()) {<a name="line.610"></a>
+<span class="sourceLineNo">611</span>                logDiagnostic(<a name="line.611"></a>
+<span class="sourceLineNo">612</span>                    "[LOOKUP] Loading the default LogFactory implementation '" + FACTORY_DEFAULT +<a name="line.612"></a>
+<span class="sourceLineNo">613</span>                    "' via the same classloader that loaded this LogFactory" +<a name="line.613"></a>
+<span class="sourceLineNo">614</span>                    " class (ie not looking in the context classloader).");<a name="line.614"></a>
+<span class="sourceLineNo">615</span>            }<a name="line.615"></a>
+<span class="sourceLineNo">616</span><a name="line.616"></a>
+<span class="sourceLineNo">617</span>            // Note: unlike the above code which can try to load custom LogFactory<a name="line.617"></a>
+<span class="sourceLineNo">618</span>            // implementations via the TCCL, we don't try to load the default LogFactory<a name="line.618"></a>
+<span class="sourceLineNo">619</span>            // implementation via the context classloader because:<a name="line.619"></a>
+<span class="sourceLineNo">620</span>            // * that can cause problems (see comments in newFactory method)<a name="line.620"></a>
+<span class="sourceLineNo">621</span>            // * no-one should be customising the code of the default class<a name="line.621"></a>
+<span class="sourceLineNo">622</span>            // Yes, we do give up the ability for the child to ship a newer<a name="line.622"></a>
+<span class="sourceLineNo">623</span>            // version of the LogFactoryImpl class and have it used dynamically<a name="line.623"></a>
+<span class="sourceLineNo">624</span>            // by an old LogFactory class in the parent, but that isn't<a name="line.624"></a>
+<span class="sourceLineNo">625</span>            // necessarily a good idea anyway.<a name="line.625"></a>
+<span class="sourceLineNo">626</span>            factory = newFactory(FACTORY_DEFAULT, thisClassLoader, contextClassLoader);<a name="line.626"></a>
+<span class="sourceLineNo">627</span>        }<a name="line.627"></a>
+<span class="sourceLineNo">628</span><a name="line.628"></a>
+<span class="sourceLineNo">629</span>        if (factory != null) {<a name="line.629"></a>
+<span class="sourceLineNo">630</span>            /**<a name="line.630"></a>
+<span class="sourceLineNo">631</span>             * Always cache using context class loader.<a name="line.631"></a>
+<span class="sourceLineNo">632</span>             */<a name="line.632"></a>
+<span class="sourceLineNo">633</span>            cacheFactory(contextClassLoader, factory);<a name="line.633"></a>
+<span class="sourceLineNo">634</span><a name="line.634"></a>
+<span class="sourceLineNo">635</span>            if (props != null) {<a name="line.635"></a>
+<span class="sourceLineNo">636</span>                Enumeration names = props.propertyNames();<a name="line.636"></a>
+<span class="sourceLineNo">637</span>                while (names.hasMoreElements()) {<a name="line.637"></a>
+<span class="sourceLineNo">638</span>                    String name = (String) names.nextElement();<a name="line.638"></a>
+<span class="sourceLineNo">639</span>                    String value = props.getProperty(name);<a name="line.639"></a>
+<span class="sourceLineNo">640</span>                    factory.setAttribute(name, value);<a name="line.640"></a>
+<span class="sourceLineNo">641</span>                }<a name="line.641"></a>
+<span class="sourceLineNo">642</span>            }<a name="line.642"></a>
+<span class="sourceLineNo">643</span>        }<a name="line.643"></a>
+<span class="sourceLineNo">644</span><a name="line.644"></a>
+<span class="sourceLineNo">645</span>        return factory;<a name="line.645"></a>
+<span class="sourceLineNo">646</span>    }<a name="line.646"></a>
+<span class="sourceLineNo">647</span><a name="line.647"></a>
+<span class="sourceLineNo">648</span>    /**<a name="line.648"></a>
+<span class="sourceLineNo">649</span>     * Convenience method to return a named logger, without the application<a name="line.649"></a>
+<span class="sourceLineNo">650</span>     * having to care about factories.<a name="line.650"></a>
+<span class="sourceLineNo">651</span>     *<a name="line.651"></a>
+<span class="sourceLineNo">652</span>     * @param clazz Class from which a log name will be derived<a name="line.652"></a>
+<span class="sourceLineNo">653</span>     * @throws LogConfigurationException if a suitable &lt;code&gt;Log&lt;/code&gt;<a name="line.653"></a>
+<span class="sourceLineNo">654</span>     *  instance cannot be returned<a name="line.654"></a>
+<span class="sourceLineNo">655</span>     */<a name="line.655"></a>
+<span class="sourceLineNo">656</span>    public static Log getLog(Class clazz) throws LogConfigurationException {<a name="line.656"></a>
+<span class="sourceLineNo">657</span>        return getFactory().getInstance(clazz);<a name="line.657"></a>
+<span class="sourceLineNo">658</span>    }<a name="line.658"></a>
+<span class="sourceLineNo">659</span><a name="line.659"></a>
+<span class="sourceLineNo">660</span>    /**<a name="line.660"></a>
+<span class="sourceLineNo">661</span>     * Convenience method to return a named logger, without the application<a name="line.661"></a>
+<span class="sourceLineNo">662</span>     * having to care about factories.<a name="line.662"></a>
+<span class="sourceLineNo">663</span>     *<a name="line.663"></a>
+<span class="sourceLineNo">664</span>     * @param name Logical name of the &lt;code&gt;Log&lt;/code&gt; instance to be<a name="line.664"></a>
+<span class="sourceLineNo">665</span>     *  returned (the meaning of this name is only known to the underlying<a name="line.665"></a>
+<span class="sourceLineNo">666</span>     *  logging implementation that is being wrapped)<a name="line.666"></a>
+<span class="sourceLineNo">667</span>     * @throws LogConfigurationException if a suitable &lt;code&gt;Log&lt;/code&gt;<a name="line.667"></a>
+<span class="sourceLineNo">668</span>     *  instance cannot be returned<a name="line.668"></a>
+<span class="sourceLineNo">669</span>     */<a name="line.669"></a>
+<span class="sourceLineNo">670</span>    public static Log getLog(String name) throws LogConfigurationException {<a name="line.670"></a>
+<span class="sourceLineNo">671</span>        return getFactory().getInstance(name);<a name="line.671"></a>
+<span class="sourceLineNo">672</span>    }<a name="line.672"></a>
+<span class="sourceLineNo">673</span><a name="line.673"></a>
+<span class="sourceLineNo">674</span>    /**<a name="line.674"></a>
+<span class="sourceLineNo">675</span>     * Release any internal references to previously created {@link LogFactory}<a name="line.675"></a>
+<span class="sourceLineNo">676</span>     * instances that have been associated with the specified class loader<a name="line.676"></a>
+<span class="sourceLineNo">677</span>     * (if any), after calling the instance method &lt;code&gt;release()&lt;/code&gt; on<a name="line.677"></a>
+<span class="sourceLineNo">678</span>     * each of them.<a name="line.678"></a>
+<span class="sourceLineNo">679</span>     *<a name="line.679"></a>
+<span class="sourceLineNo">680</span>     * @param classLoader ClassLoader for which to release the LogFactory<a name="line.680"></a>
+<span class="sourceLineNo">681</span>     */<a name="line.681"></a>
+<span class="sourceLineNo">682</span>    public static void release(ClassLoader classLoader) {<a name="line.682"></a>
+<span class="sourceLineNo">683</span>        if (isDiagnosticsEnabled()) {<a name="line.683"></a>
+<span class="sourceLineNo">684</span>            logDiagnostic("Releasing factory for classloader " + objectId(classLoader));<a name="line.684"></a>
+<span class="sourceLineNo">685</span>        }<a name="line.685"></a>
+<span class="sourceLineNo">686</span>        // factories is not final and could be replaced in this block.<a name="line.686"></a>
+<span class="sourceLineNo">687</span>        final Hashtable factories = LogFactory.factories;<a name="line.687"></a>
+<span class="sourceLineNo">688</span>        synchronized (factories) {<a name="line.688"></a>
+<span class="sourceLineNo">689</span>            if (classLoader == null) {<a name="line.689"></a>
+<span class="sourceLineNo">690</span>                if (nullClassLoaderFactory != null) {<a name="line.690"></a>
+<span class="sourceLineNo">691</span>                    nullClassLoaderFactory.release();<a name="line.691"></a>
+<span class="sourceLineNo">692</span>                    nullClassLoaderFactory = null;<a name="line.692"></a>
+<span class="sourceLineNo">693</span>                }<a name="line.693"></a>
+<span class="sourceLineNo">694</span>            } else {<a name="line.694"></a>
+<span class="sourceLineNo">695</span>                final LogFactory factory = (LogFactory) factories.get(classLoader);<a name="line.695"></a>
+<span class="sourceLineNo">696</span>                if (factory != null) {<a name="line.696"></a>
+<span class="sourceLineNo">697</span>                    factory.release();<a name="line.697"></a>
+<span class="sourceLineNo">698</span>                    factories.remove(classLoader);<a name="line.698"></a>
+<span class="sourceLineNo">699</span>                }<a name="line.699"></a>
+<span class="sourceLineNo">700</span>            }<a name="line.700"></a>
+<span class="sourceLineNo">701</span>        }<a name="line.701"></a>
+<span class="sourceLineNo">702</span>    }<a name="line.702"></a>
+<span class="sourceLineNo">703</span><a name="line.703"></a>
+<span class="sourceLineNo">704</span>    /**<a name="line.704"></a>
+<span class="sourceLineNo">705</span>     * Release any internal references to previously created {@link LogFactory}<a name="line.705"></a>
+<span class="sourceLineNo">706</span>     * instances, after calling the instance method &lt;code&gt;release()&lt;/code&gt; on<a name="line.706"></a>
+<span class="sourceLineNo">707</span>     * each of them.  This is useful in environments like servlet containers,<a name="line.707"></a>
+<span class="sourceLineNo">708</span>     * which implement application reloading by throwing away a ClassLoader.<a name="line.708"></a>
+<span class="sourceLineNo">709</span>     * Dangling references to objects in that class loader would prevent<a name="line.709"></a>
+<span class="sourceLineNo">710</span>     * garbage collection.<a name="line.710"></a>
+<span class="sourceLineNo">711</span>     */<a name="line.711"></a>
+<span class="sourceLineNo">712</span>    public static void releaseAll() {<a name="line.712"></a>
+<span class="sourceLineNo">713</span>        if (isDiagnosticsEnabled()) {<a name="line.713"></a>
+<span class="sourceLineNo">714</span>            logDiagnostic("Releasing factory for all classloaders.");<a name="line.714"></a>
+<span class="sourceLineNo">715</span>        }<a name="line.715"></a>
+<span class="sourceLineNo">716</span>        // factories is not final and could be replaced in this block.<a name="line.716"></a>
+<span class="sourceLineNo">717</span>        final Hashtable factories = LogFactory.factories;<a name="line.717"></a>
+<span class="sourceLineNo">718</span>        synchronized (factories) {<a name="line.718"></a>
+<span class="sourceLineNo">719</span>            final Enumeration elements = factories.elements();<a name="line.719"></a>
+<span class="sourceLineNo">720</span>            while (elements.hasMoreElements()) {<a name="line.720"></a>
+<span class="sourceLineNo">721</span>                LogFactory element = (LogFactory) elements.nextElement();<a name="line.721"></a>
+<span class="sourceLineNo">722</span>                element.release();<a name="line.722"></a>
+<span class="sourceLineNo">723</span>            }<a name="line.723"></a>
+<span class="sourceLineNo">724</span>            factories.clear();<a name="line.724"></a>
+<span class="sourceLineNo">725</span><a name="line.725"></a>
+<span class="sourceLineNo">726</span>            if (nullClassLoaderFactory != null) {<a name="line.726"></a>
+<span class="sourceLineNo">727</span>                nullClassLoaderFactory.release();<a name="line.727"></a>
+<span class="sourceLineNo">728</span>                nullClassLoaderFactory = null;<a name="line.728"></a>
+<span class="sourceLineNo">729</span>            }<a name="line.729"></a>
+<span class="sourceLineNo">730</span>        }<a name="line.730"></a>
+<span class="sourceLineNo">731</span>    }<a name="line.731"></a>
+<span class="sourceLineNo">732</span><a name="line.732"></a>
+<span class="sourceLineNo">733</span>    // ------------------------------------------------------ Protected Methods<a name="line.733"></a>
+<span class="sourceLineNo">734</span><a name="line.734"></a>
+<span class="sourceLineNo">735</span>    /**<a name="line.735"></a>
+<span class="sourceLineNo">736</span>     * Safely get access to the classloader for the specified class.<a name="line.736"></a>
+<span class="sourceLineNo">737</span>     * &lt;p&gt;<a name="line.737"></a>
+<span class="sourceLineNo">738</span>     * Theoretically, calling getClassLoader can throw a security exception,<a name="line.738"></a>
+<span class="sourceLineNo">739</span>     * and so should be done under an AccessController in order to provide<a name="line.739"></a>
+<span class="sourceLineNo">740</span>     * maximum flexibility. However in practice people don't appear to use<a name="line.740"></a>
+<span class="sourceLineNo">741</span>     * security policies that forbid getClassLoader calls. So for the moment<a name="line.741"></a>
+<span class="sourceLineNo">742</span>     * all code is written to call this method rather than Class.getClassLoader,<a name="line.742"></a>
+<span class="sourceLineNo">743</span>     * so that we could put AccessController stuff in this method without any<a name="line.743"></a>
+<span class="sourceLineNo">744</span>     * disruption later if we need to.<a name="line.744"></a>
+<span class="sourceLineNo">745</span>     * &lt;p&gt;<a name="line.745"></a>
+<span class="sourceLineNo">746</span>     * Even when using an AccessController, however, this method can still<a name="line.746"></a>
+<span class="sourceLineNo">747</span>     * throw SecurityException. Commons-logging basically relies on the<a name="line.747"></a>
+<span class="sourceLineNo">748</span>     * ability to access classloaders, ie a policy that forbids all<a name="line.748"></a>
+<span class="sourceLineNo">749</span>     * classloader access will also prevent commons-logging from working:<a name="line.749"></a>
+<span class="sourceLineNo">750</span>     * currently this method will throw an exception preventing the entire app<a name="line.750"></a>
+<span class="sourceLineNo">751</span>     * from starting up. Maybe it would be good to detect this situation and<a name="line.751"></a>
+<span class="sourceLineNo">752</span>     * just disable all commons-logging? Not high priority though - as stated<a name="line.752"></a>
+<span class="sourceLineNo">753</span>     * above, security policies that prevent classloader access aren't common.<a name="line.753"></a>
+<span class="sourceLineNo">754</span>     * &lt;p&gt;<a name="line.754"></a>
+<span class="sourceLineNo">755</span>     * Note that returning an object fetched via an AccessController would<a name="line.755"></a>
+<span class="sourceLineNo">756</span>     * technically be a security flaw anyway; untrusted code that has access<a name="line.756"></a>
+<span class="sourceLineNo">757</span>     * to a trusted JCL library could use it to fetch the classloader for<a name="line.757"></a>
+<span class="sourceLineNo">758</span>     * a class even when forbidden to do so directly.<a name="line.758"></a>
+<span class="sourceLineNo">759</span>     *<a name="line.759"></a>
+<span class="sourceLineNo">760</span>     * @since 1.1<a name="line.760"></a>
+<span class="sourceLineNo">761</span>     */<a name="line.761"></a>
+<span class="sourceLineNo">762</span>    protected static ClassLoader getClassLoader(Class clazz) {<a name="line.762"></a>
+<span class="sourceLineNo">763</span>        try {<a name="line.763"></a>
+<span class="sourceLineNo">764</span>            return clazz.getClassLoader();<a name="line.764"></a>
+<span class="sourceLineNo">765</span>        } catch (SecurityException ex) {<a name="line.765"></a>
+<span class="sourceLineNo">766</span>            if (isDiagnosticsEnabled()) {<a name="line.766"></a>
+<span class="sourceLineNo">767</span>                logDiagnostic("Unable to get classloader for class '" + clazz +<a name="line.767"></a>
+<span class="sourceLineNo">768</span>                              "' due to security restrictions - " + ex.getMessage());<a name="line.768"></a>
+<span class="sourceLineNo">769</span>            }<a name="line.769"></a>
+<span class="sourceLineNo">770</span>            throw ex;<a name="line.770"></a>
+<span class="sourceLineNo">771</span>        }<a name="line.771"></a>
+<span class="sourceLineNo">772</span>    }<a name="line.772"></a>
+<span class="sourceLineNo">773</span><a name="line.773"></a>
+<span class="sourceLineNo">774</span>    /**<a name="line.774"></a>
+<span class="sourceLineNo">775</span>     * Returns the current context classloader.<a name="line.775"></a>
+<span class="sourceLineNo">776</span>     * &lt;p&gt;<a name="line.776"></a>
+<span class="sourceLineNo">777</span>     * In versions prior to 1.1, this method did not use an AccessController.<a name="line.777"></a>
+<span class="sourceLineNo">778</span>     * In version 1.1, an AccessController wrapper was incorrectly added to<a name="line.778"></a>
+<span class="sourceLineNo">779</span>     * this method, causing a minor security flaw.<a name="line.779"></a>
+<span class="sourceLineNo">780</span>     * &lt;p&gt;<a name="line.780"></a>
+<span class="sourceLineNo">781</span>     * In version 1.1.1 this change was reverted; this method no longer uses<a name="line.781"></a>
+<span class="sourceLineNo">782</span>     * an AccessController. User code wishing to obtain the context classloader<a name="line.782"></a>
+<span class="sourceLineNo">783</span>     * must invoke this method via AccessController.doPrivileged if it needs<a name="line.783"></a>
+<span class="sourceLineNo">784</span>     * support for that.<a name="line.784"></a>
+<span class="sourceLineNo">785</span>     *<a name="line.785"></a>
+<span class="sourceLineNo">786</span>     * @return the context classloader associated with the current thread,<a name="line.786"></a>
+<span class="sourceLineNo">787</span>     *  or null if security doesn't allow it.<a name="line.787"></a>
+<span class="sourceLineNo">788</span>     * @throws LogConfigurationException if there was some weird error while<a name="line.788"></a>
+<span class="sourceLineNo">789</span>     *  attempting to get the context classloader.<a name="line.789"></a>
+<span class="sourceLineNo">790</span>     * @throws SecurityException if the current java security policy doesn't<a name="line.790"></a>
+<span class="sourceLineNo">791</span>     *  allow this class to access the context classloader.<a name="line.791"></a>
+<span class="sourceLineNo">792</span>     */<a name="line.792"></a>
+<span class="sourceLineNo">793</span>    protected static ClassLoader getContextClassLoader() throws LogConfigurationException {<a name="line.793"></a>
+<span class="sourceLineNo">794</span>        return directGetContextClassLoader();<a name="line.794"></a>
+<span class="sourceLineNo">795</span>    }<a name="line.795"></a>
+<span class="sourceLineNo">796</span><a name="line.796"></a>
+<span class="sourceLineNo">797</span>    /**<a name="line.797"></a>
+<span class="sourceLineNo">798</span>     * Calls LogFactory.directGetContextClassLoader under the control of an<a name="line.798"></a>
+<span class="sourceLineNo">799</span>     * AccessController class. This means that java code running under a<a name="line.799"></a>
+<span class="sourceLineNo">800</span>     * security manager that forbids access to ClassLoaders will still work<a name="line.800"></a>
+<span class="sourceLineNo">801</span>     * if this class is given appropriate privileges, even when the caller<a name="line.801"></a>
+<span class="sourceLineNo">802</span>     * doesn't have such privileges. Without using an AccessController, the<a name="line.802"></a>
+<span class="sourceLineNo">803</span>     * the entire call stack must have the privilege before the call is<a name="line.803"></a>
+<span class="sourceLineNo">804</span>     * allowed.<a name="line.804"></a>
+<span class="sourceLineNo">805</span>     *<a name="line.805"></a>
+<span class="sourceLineNo">806</span>     * @return the context classloader associated with the current thread,<a name="line.806"></a>
+<span class="sourceLineNo">807</span>     *  or null if security doesn't allow it.<a name="line.807"></a>
+<span class="sourceLineNo">808</span>     * @throws LogConfigurationException if there was some weird error while<a name="line.808"></a>
+<span class="sourceLineNo">809</span>     *  attempting to get the context classloader.<a name="line.809"></a>
+<span class="sourceLineNo">810</span>     * @throws SecurityException if the current java security policy doesn't<a name="line.810"></a>
+<span class="sourceLineNo">811</span>     *  allow this class to access the context classloader.<a name="line.811"></a>
+<span class="sourceLineNo">812</span>     */<a name="line.812"></a>
+<span class="sourceLineNo">813</span>    private static ClassLoader getContextClassLoaderInternal() throws LogConfigurationException {<a name="line.813"></a>
+<span class="sourceLineNo">814</span>        return (ClassLoader)AccessController.doPrivileged(<a name="line.814"></a>
+<span class="sourceLineNo">815</span>            new PrivilegedAction() {<a name="line.815"></a>
+<span class="sourceLineNo">816</span>                public Object run() {<a name="line.816"></a>
+<span class="sourceLineNo">817</span>                    return directGetContextClassLoader();<a name="line.817"></a>
+<span class="sourceLineNo">818</span>                }<a name="line.818"></a>
+<span class="sourceLineNo">819</span>            });<a name="line.819"></a>
+<span class="sourceLineNo">820</span>    }<a name="line.820"></a>
+<span class="sourceLineNo">821</span><a name="line.821"></a>
+<span class="sourceLineNo">822</span>    /**<a name="line.822"></a>
+<span class="sourceLineNo">823</span>     * Return the thread context class loader if available; otherwise return null.<a name="line.823"></a>
+<span class="sourceLineNo">824</span>     * &lt;p&gt;<a name="line.824"></a>
+<span class="sourceLineNo">825</span>     * Most/all code should call getContextClassLoaderInternal rather than<a name="line.825"></a>
+<span class="sourceLineNo">826</span>     * calling this method directly.<a name="line.826"></a>
+<span class="sourceLineNo">827</span>     * &lt;p&gt;<a name="line.827"></a>
+<span class="sourceLineNo">828</span>     * The thread context class loader is available for JDK 1.2<a name="line.828"></a>
+<span class="sourceLineNo">829</span>     * or later, if certain security conditions are met.<a name="line.829"></a>
+<span class="sourceLineNo">830</span>     * &lt;p&gt;<a name="line.830"></a>
+<span class="sourceLineNo">831</span>     * Note that no internal logging is done within this method because<a name="line.831"></a>
+<span class="sourceLineNo">832</span>     * this method is called every time LogFactory.getLogger() is called,<a name="line.832"></a>
+<span class="sourceLineNo">833</span>     * and we don't want too much output generated here.<a name="line.833"></a>
+<span class="sourceLineNo">834</span>     *<a name="line.834"></a>
+<span class="sourceLineNo">835</span>     * @throws LogConfigurationException if a suitable class loader<a name="line.835"></a>
+<span class="sourceLineNo">836</span>     *  cannot be identified.<a name="line.836"></a>
+<span class="sourceLineNo">837</span>     * @throws SecurityException if the java security policy forbids<a name="line.837"></a>
+<span class="sourceLineNo">838</span>     *  access to the context classloader from one of the classes in the<a name="line.838"></a>
+<span class="sourceLineNo">839</span>     *  current call stack.<a name="line.839"></a>
+<span class="sourceLineNo">840</span>     * @since 1.1<a name="line.840"></a>
+<span class="sourceLineNo">841</span>     */<a name="line.841"></a>
+<span class="sourceLineNo">842</span>    protected static ClassLoader directGetContextClassLoader() throws LogConfigurationException {<a name="line.842"></a>
+<span class="sourceLineNo">843</span>        ClassLoader classLoader = null;<a name="line.843"></a>
+<span class="sourceLineNo">844</span><a name="line.844"></a>
+<span class="sourceLineNo">845</span>        try {<a name="line.845"></a>
+<span class="sourceLineNo">846</span>            // Are we running on a JDK 1.2 or later system?<a name="line.846"></a>
+<span class="sourceLineNo">847</span>            final Method method = Thread.class.getMethod("getContextClassLoader", (Class[]) null);<a name="line.847"></a>
+<span class="sourceLineNo">848</span><a name="line.848"></a>
+<span class="sourceLineNo">849</span>            // Get the thread context class loader (if there is one)<a name="line.849"></a>
+<span class="sourceLineNo">850</span>            try {<a name="line.850"></a>
+<span class="sourceLineNo">851</span>                classLoader = (ClassLoader)method.invoke(Thread.currentThread(), (Object[]) null);<a name="line.851"></a>
+<span class="sourceLineNo">852</span>            } catch (IllegalAccessException e) {<a name="line.852"></a>
+<span class="sourceLineNo">853</span>                throw new LogConfigurationException<a name="line.853"></a>
+<span class="sourceLineNo">854</span>                    ("Unexpected IllegalAccessException", e);<a name="line.854"></a>
+<span class="sourceLineNo">855</span>            } catch (InvocationTargetException e) {<a name="line.855"></a>
+<span class="sourceLineNo">856</span>                /**<a name="line.856"></a>
+<span class="sourceLineNo">857</span>                 * InvocationTargetException is thrown by 'invoke' when<a name="line.857"></a>
+<span class="sourceLineNo">858</span>                 * the method being invoked (getContextClassLoader) throws<a name="line.858"></a>
+<span class="sourceLineNo">859</span>                 * an exception.<a name="line.859"></a>
+<span class="sourceLineNo">860</span>                 *<a name="line.860"></a>
+<span class="sourceLineNo">861</span>                 * getContextClassLoader() throws SecurityException when<a name="line.861"></a>
+<span class="sourceLineNo">862</span>                 * the context class loader isn't an ancestor of the<a name="line.862"></a>
+<span class="sourceLineNo">863</span>                 * calling class's class loader, or if security<a name="line.863"></a>
+<span class="sourceLineNo">864</span>                 * permissions are restricted.<a name="line.864"></a>
+<span class="sourceLineNo">865</span>                 *<a name="line.865"></a>
+<span class="sourceLineNo">866</span>                 * In the first case (not related), we want to ignore and<a name="line.866"></a>
+<span class="sourceLineNo">867</span>                 * keep going.  We cannot help but also ignore the second<a name="line.867"></a>
+<span class="sourceLineNo">868</span>                 * with the logic below, but other calls elsewhere (to<a name="line.868"></a>
+<span class="sourceLineNo">869</span>                 * obtain a class loader) will trigger this exception where<a name="line.869"></a>
+<span class="sourceLineNo">870</span>                 * we can make a distinction.<a name="line.870"></a>
+<span class="sourceLineNo">871</span>                 */<a name="line.871"></a>
+<span class="sourceLineNo">872</span>                if (e.getTargetException() instanceof SecurityException) {<a name="line.872"></a>
+<span class="sourceLineNo">873</span>                    // ignore<a name="line.873"></a>
+<span class="sourceLineNo">874</span>                } else {<a name="line.874"></a>
+<span class="sourceLineNo">875</span>                    // Capture 'e.getTargetException()' exception for details<a name="line.875"></a>
+<span class="sourceLineNo">876</span>                    // alternate: log 'e.getTargetException()', and pass back 'e'.<a name="line.876"></a>
+<span class="sourceLineNo">877</span>                    throw new LogConfigurationException("Unexpected InvocationTargetException", e.getTargetException());<a name="line.877"></a>
+<span class="sourceLineNo">878</span>                }<a name="line.878"></a>
+<span class="sourceLineNo">879</span>            }<a name="line.879"></a>
+<span class="sourceLineNo">880</span>        } catch (NoSuchMethodException e) {<a name="line.880"></a>
+<span class="sourceLineNo">881</span>            // Assume we are running on JDK 1.1<a name="line.881"></a>
+<span class="sourceLineNo">882</span>            classLoader = getClassLoader(LogFactory.class);<a name="line.882"></a>
+<span class="sourceLineNo">883</span><a name="line.883"></a>
+<span class="sourceLineNo">884</span>            // We deliberately don't log a message here to outputStream;<a name="line.884"></a>
+<span class="sourceLineNo">885</span>            // this message would be output for every call to LogFactory.getLog()<a name="line.885"></a>
+<span class="sourceLineNo">886</span>            // when running on JDK1.1<a name="line.886"></a>
+<span class="sourceLineNo">887</span>            //<a name="line.887"></a>
+<span class="sourceLineNo">888</span>            // if (outputStream != null) {<a name="line.888"></a>
+<span class="sourceLineNo">889</span>            //    outputStream.println(<a name="line.889"></a>
+<span class="sourceLineNo">890</span>            //        "Method Thread.getContextClassLoader does not exist;"<a name="line.890"></a>
+<span class="sourceLineNo">891</span>            //         + " assuming this is JDK 1.1, and that the context"<a name="line.891"></a>
+<span class="sourceLineNo">892</span>            //         + " classloader is the same as the class that loaded"<a name="line.892"></a>
+<span class="sourceLineNo">893</span>            //         + " the concrete LogFactory class.");<a name="line.893"></a>
+<span class="sourceLineNo">894</span>            // }<a name="line.894"></a>
+<span class="sourceLineNo">895</span>        }<a name="line.895"></a>
+<span class="sourceLineNo">896</span><a name="line.896"></a>
+<span class="sourceLineNo">897</span>        // Return the selected class loader<a name="line.897"></a>
+<span class="sourceLineNo">898</span>        return classLoader;<a name="line.898"></a>
+<span class="sourceLineNo">899</span>    }<a name="line.899"></a>
+<span class="sourceLineNo">900</span><a name="line.900"></a>
+<span class="sourceLineNo">901</span>    /**<a name="line.901"></a>
+<span class="sourceLineNo">902</span>     * Check cached factories (keyed by contextClassLoader)<a name="line.902"></a>
+<span class="sourceLineNo">903</span>     *<a name="line.903"></a>
+<span class="sourceLineNo">904</span>     * @param contextClassLoader is the context classloader associated<a name="line.904"></a>
+<span class="sourceLineNo">905</span>     * with the current thread. This allows separate LogFactory objects<a name="line.905"></a>
+<span class="sourceLineNo">906</span>     * per component within a container, provided each component has<a name="line.906"></a>
+<span class="sourceLineNo">907</span>     * a distinct context classloader set. This parameter may be null<a name="line.907"></a>
+<span class="sourceLineNo">908</span>     * in JDK1.1, and in embedded systems where jcl-using code is<a name="line.908"></a>
+<span class="sourceLineNo">909</span>     * placed in the bootclasspath.<a name="line.909"></a>
+<span class="sourceLineNo">910</span>     *<a name="line.910"></a>
+<span class="sourceLineNo">911</span>     * @return the factory associated with the specified classloader if<a name="line.911"></a>
+<span class="sourceLineNo">912</span>     *  one has previously been created, or null if this is the first time<a name="line.912"></a>
+<span class="sourceLineNo">913</span>     *  we have seen this particular classloader.<a name="line.913"></a>
+<span class="sourceLineNo">914</span>     */<a name="line.914"></a>
+<span class="sourceLineNo">915</span>    private static LogFactory getCachedFactory(ClassLoader contextClassLoader) {<a name="line.915"></a>
+<span class="sourceLineNo">916</span>        if (contextClassLoader == null) {<a name="line.916"></a>
+<span class="sourceLineNo">917</span>            // We have to handle this specially, as factories is a Hashtable<a name="line.917"></a>
+<span class="sourceLineNo">918</span>            // and those don't accept null as a key value.<a name="line.918"></a>
+<span class="sourceLineNo">919</span>            //<a name="line.919"></a>
+<span class="sourceLineNo">920</span>            // nb: nullClassLoaderFactory might be null. That's ok.<a name="line.920"></a>
+<span class="sourceLineNo">921</span>            return nullClassLoaderFactory;<a name="line.921"></a>
+<span class="sourceLineNo">922</span>        } else {<a name="line.922"></a>
+<span class="sourceLineNo">923</span>            return (LogFactory) factories.get(contextClassLoader);<a name="line.923"></a>
+<span class="sourceLineNo">924</span>        }<a name="line.924"></a>
+<span class="sourceLineNo">925</span>    }<a name="line.925"></a>
+<span class="sourceLineNo">926</span><a name="line.926"></a>
+<span class="sourceLineNo">927</span>    /**<a name="line.927"></a>
+<span class="sourceLineNo">928</span>     * Remember this factory, so later calls to LogFactory.getCachedFactory<a name="line.928"></a>
+<span class="sourceLineNo">929</span>     * can return the previously created object (together with all its<a name="line.929"></a>
+<span class="sourceLineNo">930</span>     * cached Log objects).<a name="line.930"></a>
+<span class="sourceLineNo">931</span>     *<a name="line.931"></a>
+<span class="sourceLineNo">932</span>     * @param classLoader should be the current context classloader. Note that<a name="line.932"></a>
+<span class="sourceLineNo">933</span>     *  this can be null under some circumstances; this is ok.<a name="line.933"></a>
+<span class="sourceLineNo">934</span>     * @param factory should be the factory to cache. This should never be null.<a name="line.934"></a>
+<span class="sourceLineNo">935</span>     */<a name="line.935"></a>
+<span class="sourceLineNo">936</span>    private static void cacheFactory(ClassLoader classLoader, LogFactory factory) {<a name="line.936"></a>
+<span class="sourceLineNo">937</span>        // Ideally we would assert(factory != null) here. However reporting<a name="line.937"></a>
+<span class="sourceLineNo">938</span>        // errors from within a logging implementation is a little tricky!<a name="line.938"></a>
+<span class="sourceLineNo">939</span><a name="line.939"></a>
+<span class="sourceLineNo">940</span>        if (factory != null) {<a name="line.940"></a>
+<span class="sourceLineNo">941</span>            if (classLoader == null) {<a name="line.941"></a>
+<span class="sourceLineNo">942</span>                nullClassLoaderFactory = factory;<a name="line.942"></a>
+<span class="sourceLineNo">943</span>            } else {<a name="line.943"></a>
+<span class="sourceLineNo">944</span>                factories.put(classLoader, factory);<a name="line.944"></a>
+<span class="sourceLineNo">945</span>            }<a name="line.945"></a>
+<span class="sourceLineNo">946</span>        }<a name="line.946"></a>
+<span class="sourceLineNo">947</span>    }<a name="line.947"></a>
+<span class="sourceLineNo">948</span><a name="line.948"></a>
+<span class="sourceLineNo">949</span>    /**<a name="line.949"></a>
+<span class="sourceLineNo">950</span>     * Return a new instance of the specified &lt;code&gt;LogFactory&lt;/code&gt;<a name="line.950"></a>
+<span class="sourceLineNo">951</span>     * implementation class, loaded by the specified class loader.<a name="line.951"></a>
+<span class="sourceLineNo">952</span>     * If that fails, try the class loader used to load this<a name="line.952"></a>
+<span class="sourceLineNo">953</span>     * (abstract) LogFactory.<a name="line.953"></a>
+<span class="sourceLineNo">954</span>     * &lt;p&gt;<a name="line.954"></a>
+<span class="sourceLineNo">955</span>     * &lt;h2&gt;ClassLoader conflicts&lt;/h2&gt;<a name="line.955"></a>
+<span class="sourceLineNo">956</span>     * Note that there can be problems if the specified ClassLoader is not the<a name="line.956"></a>
+<span class="sourceLineNo">957</span>     * same as the classloader that loaded this class, ie when loading a<a name="line.957"></a>
+<span class="sourceLineNo">958</span>     * concrete LogFactory subclass via a context classloader.<a name="line.958"></a>
+<span class="sourceLineNo">959</span>     * &lt;p&gt;<a name="line.959"></a>
+<span class="sourceLineNo">960</span>     * The problem is the same one that can occur when loading a concrete Log<a name="line.960"></a>
+<span class="sourceLineNo">961</span>     * subclass via a context classloader.<a name="line.961"></a>
+<span class="sourceLineNo">962</span>     * &lt;p&gt;<a name="line.962"></a>
+<span class="sourceLineNo">963</span>     * The problem occurs when code running in the context classloader calls<a name="line.963"></a>
+<span class="sourceLineNo">964</span>     * class X which was loaded via a parent classloader, and class X then calls<a name="line.964"></a>
+<span class="sourceLineNo">965</span>     * LogFactory.getFactory (either directly or via LogFactory.getLog). Because<a name="line.965"></a>
+<span class="sourceLineNo">966</span>     * class X was loaded via the parent, it binds to LogFactory loaded via<a name="line.966"></a>
+<span class="sourceLineNo">967</span>     * the parent. When the code in this method finds some LogFactoryYYYY<a name="line.967"></a>
+<span class="sourceLineNo">968</span>     * class in the child (context) classloader, and there also happens to be a<a name="line.968"></a>
+<span class="sourceLineNo">969</span>     * LogFactory class defined in the child classloader, then LogFactoryYYYY<a name="line.969"></a>
+<span class="sourceLineNo">970</span>     * will be bound to LogFactory@childloader. It cannot be cast to<a name="line.970"></a>
+<span class="sourceLineNo">971</span>     * LogFactory@parentloader, ie this method cannot return the object as<a name="line.971"></a>
+<span class="sourceLineNo">972</span>     * the desired type. Note that it doesn't matter if the LogFactory class<a name="line.972"></a>
+<span class="sourceLineNo">973</span>     * in the child classloader is identical to the LogFactory class in the<a name="line.973"></a>
+<span class="sourceLineNo">974</span>     * parent classloader, they are not compatible.<a name="line.974"></a>
+<span class="sourceLineNo">975</span>     * &lt;p&gt;<a name="line.975"></a>
+<span class="sourceLineNo">976</span>     * The solution taken here is to simply print out an error message when<a name="line.976"></a>
+<span class="sourceLineNo">977</span>     * this occurs then throw an exception. The deployer of the application<a name="line.977"></a>
+<span class="sourceLineNo">978</span>     * must ensure they remove all occurrences of the LogFactory class from<a name="line.978"></a>
+<span class="sourceLineNo">979</span>     * the child classloader in order to resolve the issue. Note that they<a name="line.979"></a>
+<span class="sourceLineNo">980</span>     * do not have to move the custom LogFactory subclass; that is ok as<a name="line.980"></a>
+<span class="sourceLineNo">981</span>     * long as the only LogFactory class it can find to bind to is in the<a name="line.981"></a>
+<span class="sourceLineNo">982</span>     * parent classloader.<a name="line.982"></a>
+<span class="sourceLineNo">983</span>     *<a name="line.983"></a>
+<span class="sourceLineNo">984</span>     * @param factoryClass Fully qualified name of the &lt;code&gt;LogFactory&lt;/code&gt;<a name="line.984"></a>
+<span class="sourceLineNo">985</span>     *  implementation class<a name="line.985"></a>
+<span class="sourceLineNo">986</span>     * @param classLoader ClassLoader from which to load this class<a name="line.986"></a>
+<span class="sourceLineNo">987</span>     * @param contextClassLoader is the context that this new factory will<a name="line.987"></a>
+<span class="sourceLineNo">988</span>     *  manage logging for.<a name="line.988"></a>
+<span class="sourceLineNo">989</span>     * @throws LogConfigurationException if a suitable instance<a name="line.989"></a>
+<span class="sourceLineNo">990</span>     *  cannot be created<a name="line.990"></a>
+<span class="sourceLineNo">991</span>     * @since 1.1<a name="line.991"></a>
+<span class="sourceLineNo">992</span>     */<a name="line.992"></a>
+<span class="sourceLineNo">993</span>    protected static LogFactory newFactory(final String factoryClass,<a name="line.993"></a>
+<span class="sourceLineNo">994</span>                                           final ClassLoader classLoader,<a name="line.994"></a>
+<span class="sourceLineNo">995</span>                                           final ClassLoader contextClassLoader)<a name="line.995"></a>
+<span class="sourceLineNo">996</span>        throws LogConfigurationException {<a name="line.996"></a>
+<span class="sourceLineNo">997</span>        // Note that any unchecked exceptions thrown by the createFactory<a name="line.997"></a>
+<span class="sourceLineNo">998</span>        // method will propagate out of this method; in particular a<a name="line.998"></a>
+<span class="sourceLineNo">999</span>        // ClassCastException can be thrown.<a name="line.999"></a>
+<span class="sourceLineNo">1000</span>        Object result = AccessController.doPrivileged(<a name="line.1000"></a>
+<span class="sourceLineNo">1001</span>            new PrivilegedAction() {<a name="line.1001"></a>
+<span class="sourceLineNo">1002</span>                public Object run() {<a name="line.1002"></a>
+<span class="sourceLineNo">1003</span>                    return createFactory(factoryClass, classLoader);<a name="line.1003"></a>
+<span class="sourceLineNo">1004</span>                }<a name="line.1004"></a>
+<span class="sourceLineNo">1005</span>            });<a name="line.1005"></a>
+<span class="sourceLineNo">1006</span><a name="line.1006"></a>
+<span class="sourceLineNo">1007</span>        if (result instanceof LogConfigurationException) {<a name="line.1007"></a>
+<span class="sourceLineNo">1008</span>            LogConfigurationException ex = (LogConfigurationException) result;<a name="line.1008"></a>
+<span class="sourceLineNo">1009</span>            if (isDiagnosticsEnabled()) {<a name="line.1009"></a>
+<span class="sourceLineNo">1010</span>                logDiagnostic("An error occurred while loading the factory class:" + ex.getMessage());<a name="line.1010"></a>
+<span class="sourceLineNo">1011</span>            }<a name="line.1011"></a>
+<span class="sourceLineNo">1012</span>            throw ex;<a name="line.1012"></a>
+<span class="sourceLineNo">1013</span>        }<a name="line.1013"></a>
+<span class="sourceLineNo">1014</span>        if (isDiagnosticsEnabled()) {<a name="line.1014"></a>
+<span class="sourceLineNo">1015</span>            logDiagnostic("Created object " + objectId(result) + " to manage classloader " +<a name="line.1015"></a>
+<span class="sourceLineNo">1016</span>                          objectId(contextClassLoader));<a name="line.1016"></a>
+<span class="sourceLineNo">1017</span>        }<a name="line.1017"></a>
+<span class="sourceLineNo">1018</span>        return (LogFactory)result;<a name="line.1018"></a>
+<span class="sourceLineNo">1019</span>    }<a name="line.1019"></a>
+<span class="sourceLineNo">1020</span><a name="line.1020"></a>
+<span class="sourceLineNo">1021</span>    /**<a name="line.1021"></a>
+<span class="sourceLineNo">1022</span>     * Method provided for backwards compatibility; see newFactory version that<a name="line.1022"></a>
+<span class="sourceLineNo">1023</span>     * takes 3 parameters.<a name="line.1023"></a>
+<span class="sourceLineNo">1024</span>     * &lt;p&gt;<a name="line.1024"></a>
+<span class="sourceLineNo">1025</span>     * This method would only ever be called in some rather odd situation.<a name="line.1025"></a>
+<span class="sourceLineNo">1026</span>     * Note that this method is static, so overriding in a subclass doesn't<a name="line.1026"></a>
+<span class="sourceLineNo">1027</span>     * have any effect unless this method is called from a method in that<a name="line.1027"></a>
+<span class="sourceLineNo">1028</span>     * subclass. However this method only makes sense to use from the<a name="line.1028"></a>
+<span class="sourceLineNo">1029</span>     * getFactory method, and as that is almost always invoked via<a name="line.1029"></a>
+<span class="sourceLineNo">1030</span>     * LogFactory.getFactory, any custom definition in a subclass would be<a name="line.1030"></a>
+<span class="sourceLineNo">1031</span>     * pointless. Only a class with a custom getFactory method, then invoked<a name="line.1031"></a>
+<span class="sourceLineNo">1032</span>     * directly via CustomFactoryImpl.getFactory or similar would ever call<a name="line.1032"></a>
+<span class="sourceLineNo">1033</span>     * this. Anyway, it's here just in case, though the "managed class loader"<a name="line.1033"></a>
+<span class="sourceLineNo">1034</span>     * value output to the diagnostics will not report the correct value.<a name="line.1034"></a>
+<span class="sourceLineNo">1035</span>     */<a name="line.1035"></a>
+<span class="sourceLineNo">1036</span>    protected static LogFactory newFactory(final String factoryClass,<a name="line.1036"></a>
+<span class="sourceLineNo">1037</span>                                           final ClassLoader classLoader) {<a name="line.1037"></a>
+<span class="sourceLineNo">1038</span>        return newFactory(factoryClass, classLoader, null);<a name="line.1038"></a>
+<span class="sourceLineNo">1039</span>    }<a name="line.1039"></a>
+<span class="sourceLineNo">1040</span><a name="line.1040"></a>
+<span class="sourceLineNo">1041</span>    /**<a name="line.1041"></a>
+<span class="sourceLineNo">1042</span>     * Implements the operations described in the javadoc for newFactory.<a name="line.1042"></a>
+<span class="sourceLineNo">1043</span>     *<a name="line.1043"></a>
+<span class="sourceLineNo">1044</span>     * @param factoryClass<a name="line.1044"></a>
+<span class="sourceLineNo">1045</span>     * @param classLoader used to load the specified factory class. This is<a name="line.1045"></a>
+<span class="sourceLineNo">1046</span>     *  expected to be either the TCCL or the classloader which loaded this<a name="line.1046"></a>
+<span class="sourceLineNo">1047</span>     *  class. Note that the classloader which loaded this class might be<a name="line.1047"></a>
+<span class="sourceLineNo">1048</span>     *  "null" (ie the bootloader) for embedded systems.<a name="line.1048"></a>
+<span class="sourceLineNo">1049</span>     * @return either a LogFactory object or a LogConfigurationException object.<a name="line.1049"></a>
+<span class="sourceLineNo">1050</span>     * @since 1.1<a name="line.1050"></a>
+<span class="sourceLineNo">1051</span>     */<a name="line.1051"></a>
+<span class="sourceLineNo">1052</span>    protected static Object createFactory(String factoryClass, ClassLoader classLoader) {<a name="line.1052"></a>
+<span class="sourceLineNo">1053</span>        // This will be used to diagnose bad configurations<a name="line.1053"></a>
+<span class="sourceLineNo">1054</span>        // and allow a useful message to be sent to the user<a name="line.1054"></a>
+<span class="sourceLineNo">1055</span>        Class logFactoryClass = null;<a name="line.1055"></a>
+<span class="sourceLineNo">1056</span>        try {<a name="line.1056"></a>
+<span class="sourceLineNo">1057</span>            if (classLoader != null) {<a name="line.1057"></a>
+<span class="sourceLineNo">1058</span>                try {<a name="line.1058"></a>
+<span class="sourceLineNo">1059</span>                    // First the given class loader param (thread class loader)<a name="line.1059"></a>
+<span class="sourceLineNo">1060</span><a name="line.1060"></a>
+<span class="sourceLineNo">1061</span>                    // Warning: must typecast here &amp; allow exception<a name="line.1061"></a>
+<span class="sourceLineNo">1062</span>                    // to be generated/caught &amp; recast properly.<a name="line.1062"></a>
+<span class="sourceLineNo">1063</span>                    logFactoryClass = classLoader.loadClass(factoryClass);<a name="line.1063"></a>
+<span class="sourceLineNo">1064</span>                    if (LogFactory.class.isAssignableFrom(logFactoryClass)) {<a name="line.1064"></a>
+<span class="sourceLineNo">1065</span>                        if (isDiagnosticsEnabled()) {<a name="line.1065"></a>
+<span class="sourceLineNo">1066</span>                            logDiagnostic("Loaded class " + logFactoryClass.getName() +<a name="line.1066"></a>
+<span class="sourceLineNo">1067</span>                                          " from classloader " + objectId(classLoader));<a name="line.1067"></a>
+<span class="sourceLineNo">1068</span>                        }<a name="line.1068"></a>
+<span class="sourceLineNo">1069</span>                    } else {<a name="line.1069"></a>
+<span class="sourceLineNo">1070</span>                        //<a name="line.1070"></a>
+<span class="sourceLineNo">1071</span>                        // This indicates a problem with the ClassLoader tree.<a name="line.1071"></a>
+<span class="sourceLineNo">1072</span>                        // An incompatible ClassLoader was used to load the<a name="line.1072"></a>
+<span class="sourceLineNo">1073</span>                        // implementation.<a name="line.1073"></a>
+<span class="sourceLineNo">1074</span>                        // As the same classes<a name="line.1074"></a>
+<span class="sourceLineNo">1075</span>                        // must be available in multiple class loaders,<a name="line.1075"></a>
+<span class="sourceLineNo">1076</span>                        // it is very likely that multiple JCL jars are present.<a name="line.1076"></a>
+<span class="sourceLineNo">1077</span>                        // The most likely fix for this<a name="line.1077"></a>
+<span class="sourceLineNo">1078</span>                        // problem is to remove the extra JCL jars from the<a name="line.1078"></a>
+<span class="sourceLineNo">1079</span>                        // ClassLoader hierarchy.<a name="line.1079"></a>
+<span class="sourceLineNo">1080</span>                        //<a name="line.1080"></a>
+<span class="sourceLineNo">1081</span>                        if (isDiagnosticsEnabled()) {<a name="line.1081"></a>
+<span class="sourceLineNo">1082</span>                            logDiagnostic("Factory class " + logFactoryClass.getName() +<a name="line.1082"></a>
+<span class="sourceLineNo">1083</span>                                          " loaded from classloader " + objectId(logFactoryClass.getClassLoader()) +<a name="line.1083"></a>
+<span class="sourceLineNo">1084</span>                                          " does not extend '" + LogFactory.class.getName() +<a name="line.1084"></a>
+<span class="sourceLineNo">1085</span>                                          "' as loaded by this classloader.");<a name="line.1085"></a>
+<span class="sourceLineNo">1086</span>                            logHierarchy("[BAD CL TREE] ", classLoader);<a name="line.1086"></a>
+<span class="sourceLineNo">1087</span>                        }<a name="line.1087"></a>
+<span class="sourceLineNo">1088</span>                    }<a name="line.1088"></a>
+<span class="sourceLineNo">1089</span><a name="line.1089"></a>
+<span class="sourceLineNo">1090</span>                    return (LogFactory) logFactoryClass.newInstance();<a name="line.1090"></a>
+<span class="sourceLineNo">1091</span><a name="line.1091"></a>
+<span class="sourceLineNo">1092</span>                } catch (ClassNotFoundException ex) {<a name="line.1092"></a>
+<span class="sourceLineNo">1093</span>                    if (classLoader == thisClassLoader) {<a name="line.1093"></a>
+<span class="sourceLineNo">1094</span>                        // Nothing more to try, onwards.<a name="line.1094"></a>
+<span class="sourceLineNo">1095</span>                        if (isDiagnosticsEnabled()) {<a name="line.1095"></a>
+<span class="sourceLineNo">1096</span>                            logDiagnostic("Unable to locate any class called '" + factoryClass +<a name="line.1096"></a>
+<span class="sourceLineNo">1097</span>                                          "' via classloader " + objectId(classLoader));<a name="line.1097"></a>
+<span class="sourceLineNo">1098</span>                        }<a name="line.1098"></a>
+<span class="sourceLineNo">1099</span>                        throw ex;<a name="line.1099"></a>
+<span class="sourceLineNo">1100</span>                    }<a name="line.1100"></a>
+<span class="sourceLineNo">1101</span>                    // ignore exception, continue<a name="line.1101"></a>
+<span class="sourceLineNo">1102</span>                } catch (NoClassDefFoundError e) {<a name="line.1102"></a>
+<span class="sourceLineNo">1103</span>                    if (classLoader == thisClassLoader) {<a name="line.1103"></a>
+<span class="sourceLineNo">1104</span>                        // Nothing more to try, onwards.<a name="line.1104"></a>
+<span class="sourceLineNo">1105</span>                        if (isDiagnosticsEnabled()) {<a name="line.1105"></a>
+<span class="sourceLineNo">1106</span>                            logDiagnostic("Class '" + factoryClass + "' cannot be loaded" +<a name="line.1106"></a>
+<span class="sourceLineNo">1107</span>                                          " via classloader " + objectId(classLoader) +<a name="line.1107"></a>
+<span class="sourceLineNo">1108</span>                                          " - it depends on some other class that cannot be found.");<a name="line.1108"></a>
+<span class="sourceLineNo">1109</span>                        }<a name="line.1109"></a>
+<span class="sourceLineNo">1110</span>                        throw e;<a name="line.1110"></a>
+<span class="sourceLineNo">1111</span>                    }<a name="line.1111"></a>
+<span class="sourceLineNo">1112</span>                    // ignore exception, continue<a name="line.1112"></a>
+<span class="sourceLineNo">1113</span>                } catch (ClassCastException e) {<a name="line.1113"></a>
+<span class="sourceLineNo">1114</span>                    if (classLoader == thisClassLoader) {<a name="line.1114"></a>
+<span class="sourceLineNo">1115</span>                        // There's no point in falling through to the code below that<a name="line.1115"></a>
+<span class="sourceLineNo">1116</span>                        // tries again with thisClassLoader, because we've just tried<a name="line.1116"></a>
+<span class="sourceLineNo">1117</span>                        // loading with that loader (not the TCCL). Just throw an<a name="line.1117"></a>
+<span class="sourceLineNo">1118</span>                        // appropriate exception here.<a name="line.1118"></a>
+<span class="sourceLineNo">1119</span><a name="line.1119"></a>
+<span class="sourceLineNo">1120</span>                        final boolean implementsLogFactory = implementsLogFactory(logFactoryClass);<a name="line.1120"></a>
+<span class="sourceLineNo">1121</span><a name="line.1121"></a>
+<span class="sourceLineNo">1122</span>                        //<a name="line.1122"></a>
+<span class="sourceLineNo">1123</span>                        // Construct a good message: users may not actual expect that a custom implementation<a name="line.1123"></a>
+<span class="sourceLineNo">1124</span>                        // has been specified. Several well known containers use this mechanism to adapt JCL<a name="line.1124"></a>
+<span class="sourceLineNo">1125</span>                        // to their native logging system.<a name="line.1125"></a>
+<span class="sourceLineNo">1126</span>                        //<a name="line.1126"></a>
+<span class="sourceLineNo">1127</span>                        final StringBuffer msg = new StringBuffer();<a name="line.1127"></a>
+<span class="sourceLineNo">1128</span>                        msg.append("The application has specified that a custom LogFactory implementation ");<a name="line.1128"></a>
+<span class="sourceLineNo">1129</span>                        msg.append("should be used but Class '");<a name="line.1129"></a>
+<span class="sourceLineNo">1130</span>                        msg.append(factoryClass);<a name="line.1130"></a>
+<span class="sourceLineNo">1131</span>                        msg.append("' cannot be converted to '");<a name="line.1131"></a>
+<span class="sourceLineNo">1132</span>                        msg.append(LogFactory.class.getName());<a name="line.1132"></a>
+<span class="sourceLineNo">1133</span>                        msg.append("'. ");<a name="line.1133"></a>
+<span class="sourceLineNo">1134</span>                        if (implementsLogFactory) {<a name="line.1134"></a>
+<span class="sourceLineNo">1135</span>                            msg.append("The conflict is caused by the presence of multiple LogFactory classes ");<a name="line.1135"></a>
+<span class="sourceLineNo">1136</span>                            msg.append("in incompatible classloaders. ");<a name="line.1136"></a>
+<span class="sourceLineNo">1137</span>                            msg.append("Background can be found in http://commons.apache.org/logging/tech.html. ");<a name="line.1137"></a>
+<span class="sourceLineNo">1138</span>                            msg.append("If you have not explicitly specified a custom LogFactory then it is likely ");<a name="line.1138"></a>
+<span class="sourceLineNo">1139</span>                            msg.append("that the container has set one without your knowledge. ");<a name="line.1139"></a>
+<span class="sourceLineNo">1140</span>                            msg.append("In this case, consider using the commons-logging-adapters.jar file or ");<a name="line.1140"></a>
+<span class="sourceLineNo">1141</span>                            msg.append("specifying the standard LogFactory from the command line. ");<a name="line.1141"></a>
+<span class="sourceLineNo">1142</span>                        } else {<a name="line.1142"></a>
+<span class="sourceLineNo">1143</span>                            msg.append("Please check the custom implementation. ");<a name="line.1143"></a>
+<span class="sourceLineNo">1144</span>                        }<a name="line.1144"></a>
+<span class="sourceLineNo">1145</span>                        msg.append("Help can be found @http://commons.apache.org/logging/troubleshooting.html.");<a name="line.1145"></a>
+<span class="sourceLineNo">1146</span><a name="line.1146"></a>
+<span class="sourceLineNo">1147</span>                        if (isDiagnosticsEnabled()) {<a name="line.1147"></a>
+<span class="sourceLineNo">1148</span>                            logDiagnostic(msg.toString());<a name="line.1148"></a>
+<span class="sourceLineNo">1149</span>                        }<a name="line.1149"></a>
+<span class="sourceLineNo">1150</span><a name="line.1150"></a>
+<span class="sourceLineNo">1151</span>                        throw new ClassCastException(msg.toString());<a name="line.1151"></a>
+<span class="sourceLineNo">1152</span>                    }<a name="line.1152"></a>
+<span class="sourceLineNo">1153</span><a name="line.1153"></a>
+<span class="sourceLineNo">1154</span>                    // Ignore exception, continue. Presumably the classloader was the<a name="line.1154"></a>
+<span class="sourceLineNo">1155</span>                    // TCCL; the code below will try to load the class via thisClassLoader.<a name="line.1155"></a>
+<span class="sourceLineNo">1156</span>                    // This will handle the case where the original calling class is in<a name="line.1156"></a>
+<span class="sourceLineNo">1157</span>                    // a shared classpath but the TCCL has a copy of LogFactory and the<a name="line.1157"></a>
+<span class="sourceLineNo">1158</span>                    // specified LogFactory implementation; we will fall back to using the<a name="line.1158"></a>
+<span class="sourceLineNo">1159</span>                    // LogFactory implementation from the same classloader as this class.<a name="line.1159"></a>
+<span class="sourceLineNo">1160</span>                    //<a name="line.1160"></a>
+<span class="sourceLineNo">1161</span>                    // Issue: this doesn't handle the reverse case, where this LogFactory<a name="line.1161"></a>
+<span class="sourceLineNo">1162</span>                    // is in the webapp, and the specified LogFactory implementation is<a name="line.1162"></a>
+<span class="sourceLineNo">1163</span>                    // in a shared classpath. In that case:<a name="line.1163"></a>
+<span class="sourceLineNo">1164</span>                    // (a) the class really does implement LogFactory (bad log msg above)<a name="line.1164"></a>
+<span class="sourceLineNo">1165</span>                    // (b) the fallback code will result in exactly the same problem.<a name="line.1165"></a>
+<span class="sourceLineNo">1166</span>                }<a name="line.1166"></a>
+<span class="sourceLineNo">1167</span>            }<a name="line.1167"></a>
+<span class="sourceLineNo">1168</span><a name="line.1168"></a>
+<span class="sourceLineNo">1169</span>            /* At this point, either classLoader == null, OR<a name="line.1169"></a>
+<span class="sourceLineNo">1170</span>             * classLoader was unable to load factoryClass.<a name="line.1170"></a>
+<span class="sourceLineNo">1171</span>             *<a name="line.1171"></a>
+<span class="sourceLineNo">1172</span>             * In either case, we call Class.forName, which is equivalent<a name="line.1172"></a>
+<span class="sourceLineNo">1173</span>             * to LogFactory.class.getClassLoader().load(name), ie we ignore<a name="line.1173"></a>
+<span class="sourceLineNo">1174</span>             * the classloader parameter the caller passed, and fall back<a name="line.1174"></a>
+<span class="sourceLineNo">1175</span>             * to trying the classloader associated with this class. See the<a name="line.1175"></a>
+<span class="sourceLineNo">1176</span>             * javadoc for the newFactory method for more info on the<a name="line.1176"></a>
+<span class="sourceLineNo">1177</span>             * consequences of this.<a name="line.1177"></a>
+<span class="sourceLineNo">1178</span>             *<a name="line.1178"></a>
+<span class="sourceLineNo">1179</span>             * Notes:<a name="line.1179"></a>
+<span class="sourceLineNo">1180</span>             * * LogFactory.class.getClassLoader() may return 'null'<a name="line.1180"></a>
+<span class="sourceLineNo">1181</span>             *   if LogFactory is loaded by the bootstrap classloader.<a name="line.1181"></a>
+<span class="sourceLineNo">1182</span>             */<a name="line.1182"></a>
+<span class="sourceLineNo">1183</span>            // Warning: must typecast here &amp; allow exception<a name="line.1183"></a>
+<span class="sourceLineNo">1184</span>            // to be generated/caught &amp; recast properly.<a name="line.1184"></a>
+<span class="sourceLineNo">1185</span>            if (isDiagnosticsEnabled()) {<a name="line.1185"></a>
+<span class="sourceLineNo">1186</span>                logDiagnostic("Unable to load factory class via classloader " + objectId(classLoader) +<a name="line.1186"></a>
+<span class="sourceLineNo">1187</span>                              " - trying the classloader associated with this LogFactory.");<a name="line.1187"></a>
+<span class="sourceLineNo">1188</span>            }<a name="line.1188"></a>
+<span class="sourceLineNo">1189</span>            logFactoryClass = Class.forName(factoryClass);<a name="line.1189"></a>
+<span class="sourceLineNo">1190</span>            return (LogFactory) logFactoryClass.newInstance();<a name="line.1190"></a>
+<span class="sourceLineNo">1191</span>        } catch (Exception e) {<a name="line.1191"></a>
+<span class="sourceLineNo">1192</span>            // Check to see if we've got a bad configuration<a name="line.1192"></a>
+<span class="sourceLineNo">1193</span>            if (isDiagnosticsEnabled()) {<a name="line.1193"></a>
+<span class="sourceLineNo">1194</span>                logDiagnostic("Unable to create LogFactory instance.");<a name="line.1194"></a>
+<span class="sourceLineNo">1195</span>            }<a name="line.1195"></a>
+<span class="sourceLineNo">1196</span>            if (logFactoryClass != null &amp;&amp; !LogFactory.class.isAssignableFrom(logFactoryClass)) {<a name="line.1196"></a>
+<span class="sourceLineNo">1197</span>                return new LogConfigurationException(<a name="line.1197"></a>
+<span class="sourceLineNo">1198</span>                    "The chosen LogFactory implementation does not extend LogFactory." +<a name="line.1198"></a>
+<span class="sourceLineNo">1199</span>                    " Please check your configuration.", e);<a name="line.1199"></a>
+<span class="sourceLineNo">1200</span>            }<a name="line.1200"></a>
+<span class="sourceLineNo">1201</span>            return new LogConfigurationException(e);<a name="line.1201"></a>
+<span class="sourceLineNo">1202</span>        }<a name="line.1202"></a>
+<span class="sourceLineNo">1203</span>    }<a name="line.1203"></a>
+<span class="sourceLineNo">1204</span><a name="line.1204"></a>
+<span class="sourceLineNo">1205</span>    /**<a name="line.1205"></a>
+<span class="sourceLineNo">1206</span>     * Determines whether the given class actually implements &lt;code&gt;LogFactory&lt;/code&gt;.<a name="line.1206"></a>
+<span class="sourceLineNo">1207</span>     * Diagnostic information is also logged.<a name="line.1207"></a>
+<span class="sourceLineNo">1208</span>     * &lt;p&gt;<a name="line.1208"></a>
+<span class="sourceLineNo">1209</span>     * &lt;strong&gt;Usage:&lt;/strong&gt; to diagnose whether a classloader conflict is the cause<a name="line.1209"></a>
+<span class="sourceLineNo">1210</span>     * of incompatibility. The test used is whether the class is assignable from<a name="line.1210"></a>
+<span class="sourceLineNo">1211</span>     * the &lt;code&gt;LogFactory&lt;/code&gt; class loaded by the class's classloader.<a name="line.1211"></a>
+<span class="sourceLineNo">1212</span>     * @param logFactoryClass &lt;code&gt;Class&lt;/code&gt; which may implement &lt;code&gt;LogFactory&lt;/code&gt;<a name="line.1212"></a>
+<span class="sourceLineNo">1213</span>     * @return true if the &lt;code&gt;logFactoryClass&lt;/code&gt; does extend<a name="line.1213"></a>
+<span class="sourceLineNo">1214</span>     * &lt;code&gt;LogFactory&lt;/code&gt; when that class is loaded via the same<a name="line.1214"></a>
+<span class="sourceLineNo">1215</span>     * classloader that loaded the &lt;code&gt;logFactoryClass&lt;/code&gt;.<a name="line.1215"></a>
+<span class="sourceLineNo">1216</span>     */<a name="line.1216"></a>
+<span class="sourceLineNo">1217</span>    private static boolean implementsLogFactory(Class logFactoryClass) {<a name="line.1217"></a>
+<span class="sourceLineNo">1218</span>        boolean implementsLogFactory = false;<a name="line.1218"></a>
+<span class="sourceLineNo">1219</span>        if (logFactoryClass != null) {<a name="line.1219"></a>
+<span class="sourceLineNo">1220</span>            try {<a name="line.1220"></a>
+<span class="sourceLineNo">1221</span>                ClassLoader logFactoryClassLoader = logFactoryClass.getClassLoader();<a name="line.1221"></a>
+<span class="sourceLineNo">1222</span>                if (logFactoryClassLoader == null) {<a name="line.1222"></a>
+<span class="sourceLineNo">1223</span>                    logDiagnostic("[CUSTOM LOG FACTORY] was loaded by the boot classloader");<a name="line.1223"></a>
+<span class="sourceLineNo">1224</span>                } else {<a name="line.1224"></a>
+<span class="sourceLineNo">1225</span>                    logHierarchy("[CUSTOM LOG FACTORY] ", logFactoryClassLoader);<a name="line.1225"></a>
+<span class="sourceLineNo">1226</span>                    Class factoryFromCustomLoader<a name="line.1226"></a>
+<span class="sourceLineNo">1227</span>                        = Class.forName("org.apache.commons.logging.LogFactory", false, logFactoryClassLoader);<a name="line.1227"></a>
+<span class="sourceLineNo">1228</span>                    implementsLogFactory = factoryFromCustomLoader.isAssignableFrom(logFactoryClass);<a name="line.1228"></a>
+<span class="sourceLineNo">1229</span>                    if (implementsLogFactory) {<a name="line.1229"></a>
+<span class="sourceLineNo">1230</span>                        logDiagnostic("[CUSTOM LOG FACTORY] " + logFactoryClass.getName() +<a name="line.1230"></a>
+<span class="sourceLineNo">1231</span>                                      " implements LogFactory but was loaded by an incompatible classloader.");<a name="line.1231"></a>
+<span class="sourceLineNo">1232</span>                    } else {<a name="line.1232"></a>
+<span class="sourceLineNo">1233</span>                        logDiagnostic("[CUSTOM LOG FACTORY] " + logFactoryClass.getName() +<a name="line.1233"></a>
+<span class="sourceLineNo">1234</span>                                      " does not implement LogFactory.");<a name="line.1234"></a>
+<span class="sourceLineNo">1235</span>                    }<a name="line.1235"></a>
+<span class="sourceLineNo">1236</span>                }<a name="line.1236"></a>
+<span class="sourceLineNo">1237</span>            } catch (SecurityException e) {<a name="line.1237"></a>
+<span class="sourceLineNo">1238</span>                //<a name="line.1238"></a>
+<span class="sourceLineNo">1239</span>                // The application is running within a hostile security environment.<a name="line.1239"></a>
+<span class="sourceLineNo">1240</span>                // This will make it very hard to diagnose issues with JCL.<a name="line.1240"></a>
+<span class="sourceLineNo">1241</span>                // Consider running less securely whilst debugging this issue.<a name="line.1241"></a>
+<span class="sourceLineNo">1242</span>                //<a name="line.1242"></a>
+<span class="sourceLineNo">1243</span>                logDiagnostic("[CUSTOM LOG FACTORY] SecurityException thrown whilst trying to determine whether " +<a name="line.1243"></a>
+<span class="sourceLineNo">1244</span>                              "the compatibility was caused by a classloader conflict: " + e.getMessage());<a name="line.1244"></a>
+<span class="sourceLineNo">1245</span>            } catch (LinkageError e) {<a name="line.1245"></a>
+<span class="sourceLineNo">1246</span>                //<a name="line.1246"></a>
+<span class="sourceLineNo">1247</span>                // This should be an unusual circumstance.<a name="line.1247"></a>
+<span class="sourceLineNo">1248</span>                // LinkageError's usually indicate that a dependent class has incompatibly changed.<a name="line.1248"></a>
+<span class="sourceLineNo">1249</span>                // Another possibility may be an exception thrown by an initializer.<a name="line.1249"></a>
+<span class="sourceLineNo">1250</span>                // Time for a clean rebuild?<a name="line.1250"></a>
+<span class="sourceLineNo">1251</span>                //<a name="line.1251"></a>
+<span class="sourceLineNo">1252</span>                logDiagnostic("[CUSTOM LOG FACTORY] LinkageError thrown whilst trying to determine whether " +<a name="line.1252"></a>
+<span class="sourceLineNo">1253</span>                              "the compatibility was caused by a classloader conflict: " + e.getMessage());<a name="line.1253"></a>
+<span class="sourceLineNo">1254</span>            } catch (ClassNotFoundException e) {<a name="line.1254"></a>
+<span class="sourceLineNo">1255</span>                //<a name="line.1255"></a>
+<span class="sourceLineNo">1256</span>                // LogFactory cannot be loaded by the classloader which loaded the custom factory implementation.<a name="line.1256"></a>
+<span class="sourceLineNo">1257</span>                // The custom implementation is not viable until this is corrected.<a name="line.1257"></a>
+<span class="sourceLineNo">1258</span>                // Ensure that the JCL jar and the custom class are available from the same classloader.<a name="line.1258"></a>
+<span class="sourceLineNo">1259</span>                // Running with diagnostics on should give information about the classloaders used<a name="line.1259"></a>
+<span class="sourceLineNo">1260</span>                // to load the custom factory.<a name="line.1260"></a>
+<span class="sourceLineNo">1261</span>                //<a name="line.1261"></a>
+<span class="sourceLineNo">1262</span>                logDiagnostic("[CUSTOM LOG FACTORY] LogFactory class cannot be loaded by classloader which loaded " +<a name="line.1262"></a>
+<span class="sourceLineNo">1263</span>                              "the custom LogFactory implementation. Is the custom factory in the right classloader?");<a name="line.1263"></a>
+<span class="sourceLineNo">1264</span>            }<a name="line.1264"></a>
+<span class="sourceLineNo">1265</span>        }<a name="line.1265"></a>
+<span class="sourceLineNo">1266</span>        return implementsLogFactory;<a name="line.1266"></a>
+<span class="sourceLineNo">1267</span>    }<a name="line.1267"></a>
+<span class="sourceLineNo">1268</span><a name="line.1268"></a>
+<span class="sourceLineNo">1269</span>    /**<a name="line.1269"></a>
+<span class="sourceLineNo">1270</span>     * Applets may run in an environment where accessing resources of a loader is<a name="line.1270"></a>
+<span class="sourceLineNo">1271</span>     * a secure operation, but where the commons-logging library has explicitly<a name="line.1271"></a>
+<span class="sourceLineNo">1272</span>     * been granted permission for that operation. In this case, we need to<a name="line.1272"></a>
+<span class="sourceLineNo">1273</span>     * run the operation using an AccessController.<a name="line.1273"></a>
+<span class="sourceLineNo">1274</span>     */<a name="line.1274"></a>
+<span class="sourceLineNo">1275</span>    private static InputStream getResourceAsStream(final ClassLoader loader, final String name) {<a name="line.1275"></a>
+<span class="sourceLineNo">1276</span>        return (InputStream)AccessController.doPrivileged(<a name="line.1276"></a>
+<span class="sourceLineNo">1277</span>            new PrivilegedAction() {<a name="line.1277"></a>
+<span class="sourceLineNo">1278</span>                public Object run() {<a name="line.1278"></a>
+<span class="sourceLineNo">1279</span>                    if (loader != null) {<a name="line.1279"></a>
+<span class="sourceLineNo">1280</span>                        return loader.getResourceAsStream(name);<a name="line.1280"></a>
+<span class="sourceLineNo">1281</span>                    } else {<a name="line.1281"></a>
+<span class="sourceLineNo">1282</span>                        return ClassLoader.getSystemResourceAsStream(name);<a name="line.1282"></a>
+<span class="sourceLineNo">1283</span>                    }<a name="line.1283"></a>
+<span class="sourceLineNo">1284</span>                }<a name="line.1284"></a>
+<span class="sourceLineNo">1285</span>            });<a name="line.1285"></a>
+<span class="sourceLineNo">1286</span>    }<a name="line.1286"></a>
+<span class="sourceLineNo">1287</span><a name="line.1287"></a>
+<span class="sourceLineNo">1288</span>    /**<a name="line.1288"></a>
+<span class="sourceLineNo">1289</span>     * Given a filename, return an enumeration of URLs pointing to<a name="line.1289"></a>
+<span class="sourceLineNo">1290</span>     * all the occurrences of that filename in the classpath.<a name="line.1290"></a>
+<span class="sourceLineNo">1291</span>     * &lt;p&gt;<a name="line.1291"></a>
+<span class="sourceLineNo">1292</span>     * This is just like ClassLoader.getResources except that the<a name="line.1292"></a>
+<span class="sourceLineNo">1293</span>     * operation is done under an AccessController so that this method will<a name="line.1293"></a>
+<span class="sourceLineNo">1294</span>     * succeed when this jarfile is privileged but the caller is not.<a name="line.1294"></a>
+<span class="sourceLineNo">1295</span>     * This method must therefore remain private to avoid security issues.<a name="line.1295"></a>
+<span class="sourceLineNo">1296</span>     * &lt;p&gt;<a name="line.1296"></a>
+<span class="sourceLineNo">1297</span>     * If no instances are found, an Enumeration is returned whose<a name="line.1297"></a>
+<span class="sourceLineNo">1298</span>     * hasMoreElements method returns false (ie an "empty" enumeration).<a name="line.1298"></a>
+<span class="sourceLineNo">1299</span>     * If resources could not be listed for some reason, null is returned.<a name="line.1299"></a>
+<span class="sourceLineNo">1300</span>     */<a name="line.1300"></a>
+<span class="sourceLineNo">1301</span>    private static Enumeration getResources(final ClassLoader loader, final String name) {<a name="line.1301"></a>
+<span class="sourceLineNo">1302</span>        PrivilegedAction action =<a name="line.1302"></a>
+<span class="sourceLineNo">1303</span>            new PrivilegedAction() {<a name="line.1303"></a>
+<span class="sourceLineNo">1304</span>                public Object run() {<a name="line.1304"></a>
+<span class="sourceLineNo">1305</span>                    try {<a name="line.1305"></a>
+<span class="sourceLineNo">1306</span>                        if (loader != null) {<a name="line.1306"></a>
+<span class="sourceLineNo">1307</span>                            return loader.getResources(name);<a name="line.1307"></a>
+<span class="sourceLineNo">1308</span>                        } else {<a name="line.1308"></a>
+<span class="sourceLineNo">1309</span>                            return ClassLoader.getSystemResources(name);<a name="line.1309"></a>
+<span class="sourceLineNo">1310</span>                        }<a name="line.1310"></a>
+<span class="sourceLineNo">1311</span>                    } catch (IOException e) {<a name="line.1311"></a>
+<span class="sourceLineNo">1312</span>                        if (isDiagnosticsEnabled()) {<a name="line.1312"></a>
+<span class="sourceLineNo">1313</span>                            logDiagnostic("Exception while trying to find configuration file " +<a name="line.1313"></a>
+<span class="sourceLineNo">1314</span>                                          name + ":" + e.getMessage());<a name="line.1314"></a>
+<span class="sourceLineNo">1315</span>                        }<a name="line.1315"></a>
+<span class="sourceLineNo">1316</span>                        return null;<a name="line.1316"></a>
+<span class="sourceLineNo">1317</span>                    } catch (NoSuchMethodError e) {<a name="line.1317"></a>
+<span class="sourceLineNo">1318</span>                        // we must be running on a 1.1 JVM which doesn't support<a name="line.1318"></a>
+<span class="sourceLineNo">1319</span>                        // ClassLoader.getSystemResources; just return null in<a name="line.1319"></a>
+<span class="sourceLineNo">1320</span>                        // this case.<a name="line.1320"></a>
+<span class="sourceLineNo">1321</span>                        return null;<a name="line.1321"></a>
+<span class="sourceLineNo">1322</span>                    }<a name="line.1322"></a>
+<span class="sourceLineNo">1323</span>                }<a name="line.1323"></a>
+<span class="sourceLineNo">1324</span>            };<a name="line.1324"></a>
+<span class="sourceLineNo">1325</span>        Object result = AccessController.doPrivileged(action);<a name="line.1325"></a>
+<span class="sourceLineNo">1326</span>        return (Enumeration) result;<a name="line.1326"></a>
+<span class="sourceLineNo">1327</span>    }<a name="line.1327"></a>
+<span class="sourceLineNo">1328</span><a name="line.1328"></a>
+<span class="sourceLineNo">1329</span>    /**<a name="line.1329"></a>
+<span class="sourceLineNo">1330</span>     * Given a URL that refers to a .properties file, load that file.<a name="line.1330"></a>
+<span class="sourceLineNo">1331</span>     * This is done under an AccessController so that this method will<a name="line.1331"></a>
+<span class="sourceLineNo">1332</span>     * succeed when this jarfile is privileged but the caller is not.<a name="line.1332"></a>
+<span class="sourceLineNo">1333</span>     * This method must therefore remain private to avoid security issues.<a name="line.1333"></a>
+<span class="sourceLineNo">1334</span>     * &lt;p&gt;<a name="line.1334"></a>
+<span class="sourceLineNo">1335</span>     * {@code Null} is returned if the URL cannot be opened.<a name="line.1335"></a>
+<span class="sourceLineNo">1336</span>     */<a name="line.1336"></a>
+<span class="sourceLineNo">1337</span>    private static Properties getProperties(final URL url) {<a name="line.1337"></a>
+<span class="sourceLineNo">1338</span>        PrivilegedAction action =<a name="line.1338"></a>
+<span class="sourceLineNo">1339</span>            new PrivilegedAction() {<a name="line.1339"></a>
+<span class="sourceLineNo">1340</span>                public Object run() {<a name="line.1340"></a>
+<span class="sourceLineNo">1341</span>                    InputStream stream = null;<a name="line.1341"></a>
+<span class="sourceLineNo">1342</span>                    try {<a name="line.1342"></a>
+<span class="sourceLineNo">1343</span>                        // We must ensure that useCaches is set to false, as the<a name="line.1343"></a>
+<span class="sourceLineNo">1344</span>                        // default behaviour of java is to cache file handles, and<a name="line.1344"></a>
+<span class="sourceLineNo">1345</span>                        // this "locks" files, preventing hot-redeploy on windows.<a name="line.1345"></a>
+<span class="sourceLineNo">1346</span>                        URLConnection connection = url.openConnection();<a name="line.1346"></a>
+<span class="sourceLineNo">1347</span>                        connection.setUseCaches(false);<a name="line.1347"></a>
+<span class="sourceLineNo">1348</span>                        stream = connection.getInputStream();<a name="line.1348"></a>
+<span class="sourceLineNo">1349</span>                        if (stream != null) {<a name="line.1349"></a>
+<span class="sourceLineNo">1350</span>                            Properties props = new Properties();<a name="line.1350"></a>
+<span class="sourceLineNo">1351</span>                            props.load(stream);<a name="line.1351"></a>
+<span class="sourceLineNo">1352</span>                            stream.close();<a name="line.1352"></a>
+<span class="sourceLineNo">1353</span>                            stream = null;<a name="line.1353"></a>
+<span class="sourceLineNo">1354</span>                            return props;<a name="line.1354"></a>
+<span class="sourceLineNo">1355</span>                        }<a name="line.1355"></a>
+<span class="sourceLineNo">1356</span>                    } catch (IOException e) {<a name="line.1356"></a>
+<span class="sourceLineNo">1357</span>                        if (isDiagnosticsEnabled()) {<a name="line.1357"></a>
+<span class="sourceLineNo">1358</span>                            logDiagnostic("Unable to read URL " + url);<a name="line.1358"></a>
+<span class="sourceLineNo">1359</span>                        }<a name="line.1359"></a>
+<span class="sourceLineNo">1360</span>                    } finally {<a name="line.1360"></a>
+<span class="sourceLineNo">1361</span>                        if (stream != null) {<a name="line.1361"></a>
+<span class="sourceLineNo">1362</span>                            try {<a name="line.1362"></a>
+<span class="sourceLineNo">1363</span>                                stream.close();<a name="line.1363"></a>
+<span class="sourceLineNo">1364</span>                            } catch (IOException e) {<a name="line.1364"></a>
+<span class="sourceLineNo">1365</span>                                // ignore exception; this should not happen<a name="line.1365"></a>
+<span class="sourceLineNo">1366</span>                                if (isDiagnosticsEnabled()) {<a name="line.1366"></a>
+<span class="sourceLineNo">1367</span>                                    logDiagnostic("Unable to close stream for URL " + url);<a name="line.1367"></a>
+<span class="sourceLineNo">1368</span>                                }<a name="line.1368"></a>
+<span class="sourceLineNo">1369</span>                            }<a name="line.1369"></a>
+<span class="sourceLineNo">1370</span>                        }<a name="line.1370"></a>
+<span class="sourceLineNo">1371</span>                    }<a name="line.1371"></a>
+<span class="sourceLineNo">1372</span><a name="line.1372"></a>
+<span class="sourceLineNo">1373</span>                    return null;<a name="line.1373"></a>
+<span class="sourceLineNo">1374</span>                }<a name="line.1374"></a>
+<span class="sourceLineNo">1375</span>            };<a name="line.1375"></a>
+<span class="sourceLineNo">1376</span>        return (Properties) AccessController.doPrivileged(action);<a name="line.1376"></a>
+<span class="sourceLineNo">1377</span>    }<a name="line.1377"></a>
+<span class="sourceLineNo">1378</span><a name="line.1378"></a>
+<span class="sourceLineNo">1379</span>    /**<a name="line.1379"></a>
+<span class="sourceLineNo">1380</span>     * Locate a user-provided configuration file.<a name="line.1380"></a>
+<span class="sourceLineNo">1381</span>     * &lt;p&gt;<a name="line.1381"></a>
+<span class="sourceLineNo">1382</span>     * The classpath of the specified classLoader (usually the context classloader)<a name="line.1382"></a>
+<span class="sourceLineNo">1383</span>     * is searched for properties files of the specified name. If none is found,<a name="line.1383"></a>
+<span class="sourceLineNo">1384</span>     * null is returned. If more than one is found, then the file with the greatest<a name="line.1384"></a>
+<span class="sourceLineNo">1385</span>     * value for its PRIORITY property is returned. If multiple files have the<a name="line.1385"></a>
+<span class="sourceLineNo">1386</span>     * same PRIORITY value then the first in the classpath is returned.<a name="line.1386"></a>
+<span class="sourceLineNo">1387</span>     * &lt;p&gt;<a name="line.1387"></a>
+<span class="sourceLineNo">1388</span>     * This differs from the 1.0.x releases; those always use the first one found.<a name="line.1388"></a>
+<span class="sourceLineNo">1389</span>     * However as the priority is a new field, this change is backwards compatible.<a name="line.1389"></a>
+<span class="sourceLineNo">1390</span>     * &lt;p&gt;<a name="line.1390"></a>
+<span class="sourceLineNo">1391</span>     * The purpose of the priority field is to allow a webserver administrator to<a name="line.1391"></a>
+<span class="sourceLineNo">1392</span>     * override logging settings in all webapps by placing a commons-logging.properties<a name="line.1392"></a>
+<span class="sourceLineNo">1393</span>     * file in a shared classpath location with a priority &gt; 0; this overrides any<a name="line.1393"></a>
+<span class="sourceLineNo">1394</span>     * commons-logging.properties files without priorities which are in the<a name="line.1394"></a>
+<span class="sourceLineNo">1395</span>     * webapps. Webapps can also use explicit priorities to override a configuration<a name="line.1395"></a>
+<span class="sourceLineNo">1396</span>     * file in the shared classpath if needed.<a name="line.1396"></a>
+<span class="sourceLineNo">1397</span>     */<a name="line.1397"></a>
+<span class="sourceLineNo">1398</span>    private static final Properties getConfigurationFile(ClassLoader classLoader, String fileName) {<a name="line.1398"></a>
+<span class="sourceLineNo">1399</span>        Properties props = null;<a name="line.1399"></a>
+<span class="sourceLineNo">1400</span>        double priority = 0.0;<a name="line.1400"></a>
+<span class="sourceLineNo">1401</span>        URL propsUrl = null;<a name="line.1401"></a>
+<span class="sourceLineNo">1402</span>        try {<a name="line.1402"></a>
+<span class="sourceLineNo">1403</span>            Enumeration urls = getResources(classLoader, fileName);<a name="line.1403"></a>
+<span class="sourceLineNo">1404</span><a name="line.1404"></a>
+<span class="sourceLineNo">1405</span>            if (urls == null) {<a name="line.1405"></a>
+<span class="sourceLineNo">1406</span>                return null;<a name="line.1406"></a>
+<span class="sourceLineNo">1407</span>            }<a name="line.1407"></a>
+<span class="sourceLineNo">1408</span><a name="line.1408"></a>
+<span class="sourceLineNo">1409</span>            while (urls.hasMoreElements()) {<a name="line.1409"></a>
+<span class="sourceLineNo">1410</span>                URL url = (URL) urls.nextElement();<a name="line.1410"></a>
+<span class="sourceLineNo">1411</span><a name="line.1411"></a>
+<span class="sourceLineNo">1412</span>                Properties newProps = getProperties(url);<a name="line.1412"></a>
+<span class="sourceLineNo">1413</span>                if (newProps != null) {<a name="line.1413"></a>
+<span class="sourceLineNo">1414</span>                    if (props == null) {<a name="line.1414"></a>
+<span class="sourceLineNo">1415</span>                        propsUrl = url;<a name="line.1415"></a>
+<span class="sourceLineNo">1416</span>                        props = newProps;<a name="line.1416"></a>
+<span class="sourceLineNo">1417</span>                        String priorityStr = props.getProperty(PRIORITY_KEY);<a name="line.1417"></a>
+<span class="sourceLineNo">1418</span>                        priority = 0.0;<a name="line.1418"></a>
+<span class="sourceLineNo">1419</span>                        if (priorityStr != null) {<a name="line.1419"></a>
+<span class="sourceLineNo">1420</span>                            priority = Double.parseDouble(priorityStr);<a name="line.1420"></a>
+<span class="sourceLineNo">1421</span>                        }<a name="line.1421"></a>
+<span class="sourceLineNo">1422</span><a name="line.1422"></a>
+<span class="sourceLineNo">1423</span>                        if (isDiagnosticsEnabled()) {<a name="line.1423"></a>
+<span class="sourceLineNo">1424</span>                            logDiagnostic("[LOOKUP] Properties file found at '" + url + "'" +<a name="line.1424"></a>
+<span class="sourceLineNo">1425</span>                                          " with priority " + priority);<a name="line.1425"></a>
+<span class="sourceLineNo">1426</span>                        }<a name="line.1426"></a>
+<span class="sourceLineNo">1427</span>                    } else {<a name="line.1427"></a>
+<span class="sourceLineNo">1428</span>                        String newPriorityStr = newProps.getProperty(PRIORITY_KEY);<a name="line.1428"></a>
+<span class="sourceLineNo">1429</span>                        double newPriority = 0.0;<a name="line.1429"></a>
+<span class="sourceLineNo">1430</span>                        if (newPriorityStr != null) {<a name="line.1430"></a>
+<span class="sourceLineNo">1431</span>                            newPriority = Double.parseDouble(newPriorityStr);<a name="line.1431"></a>
+<span class="sourceLineNo">1432</span>                        }<a name="line.1432"></a>
+<span class="sourceLineNo">1433</span><a name="line.1433"></a>
+<span class="sourceLineNo">1434</span>                        if (newPriority &gt; priority) {<a name="line.1434"></a>
+<span class="sourceLineNo">1435</span>                            if (isDiagnosticsEnabled()) {<a name="line.1435"></a>
+<span class="sourceLineNo">1436</span>                                logDiagnostic("[LOOKUP] Properties file at '" + url + "'" +<a name="line.1436"></a>
+<span class="sourceLineNo">1437</span>                                              " with priority " + newPriority +<a name="line.1437"></a>
+<span class="sourceLineNo">1438</span>                                              " overrides file at '" + propsUrl + "'" +<a name="line.1438"></a>
+<span class="sourceLineNo">1439</span>                                              " with priority " + priority);<a name="line.1439"></a>
+<span class="sourceLineNo">1440</span>                            }<a name="line.1440"></a>
+<span class="sourceLineNo">1441</span><a name="line.1441"></a>
+<span class="sourceLineNo">1442</span>                            propsUrl = url;<a name="line.1442"></a>
+<span class="sourceLineNo">1443</span>                            props = newProps;<a name="line.1443"></a>
+<span class="sourceLineNo">1444</span>                            priority = newPriority;<a name="line.1444"></a>
+<span class="sourceLineNo">1445</span>                        } else {<a name="line.1445"></a>
+<span class="sourceLineNo">1446</span>                            if (isDiagnosticsEnabled()) {<a name="line.1446"></a>
+<span class="sourceLineNo">1447</span>                                logDiagnostic("[LOOKUP] Properties file at '" + url + "'" +<a name="line.1447"></a>
+<span class="sourceLineNo">1448</span>                                              " with priority " + newPriority +<a name="line.1448"></a>
+<span class="sourceLineNo">1449</span>                                              " does not override file at '" + propsUrl + "'" +<a name="line.1449"></a>
+<span class="sourceLineNo">1450</span>                                              " with priority " + priority);<a name="line.1450"></a>
+<span class="sourceLineNo">1451</span>                            }<a name="line.1451"></a>
+<span class="sourceLineNo">1452</span>                        }<a name="line.1452"></a>
+<span class="sourceLineNo">1453</span>                    }<a name="line.1453"></a>
+<span class="sourceLineNo">1454</span><a name="line.1454"></a>
+<span class="sourceLineNo">1455</span>                }<a name="line.1455"></a>
+<span class="sourceLineNo">1456</span>            }<a name="line.1456"></a>
+<span class="sourceLineNo">1457</span>        } catch (SecurityException e) {<a name="line.1457"></a>
+<span class="sourceLineNo">1458</span>            if (isDiagnosticsEnabled()) {<a name="line.1458"></a>
+<span class="sourceLineNo">1459</span>                logDiagnostic("SecurityException thrown while trying to find/read config files.");<a name="line.1459"></a>
+<span class="sourceLineNo">1460</span>            }<a name="line.1460"></a>
+<span class="sourceLineNo">1461</span>        }<a name="line.1461"></a>
+<span class="sourceLineNo">1462</span><a name="line.1462"></a>
+<span class="sourceLineNo">1463</span>        if (isDiagnosticsEnabled()) {<a name="line.1463"></a>
+<span class="sourceLineNo">1464</span>            if (props == null) {<a name="line.1464"></a>
+<span class="sourceLineNo">1465</span>                logDiagnostic("[LOOKUP] No properties file of name '" + fileName + "' found.");<a name="line.1465"></a>
+<span class="sourceLineNo">1466</span>            } else {<a name="line.1466"></a>
+<span class="sourceLineNo">1467</span>                logDiagnostic("[LOOKUP] Properties file of name '" + fileName + "' found at '" + propsUrl + '"');<a name="line.1467"></a>
+<span class="sourceLineNo">1468</span>            }<a name="line.1468"></a>
+<span class="sourceLineNo">1469</span>        }<a name="line.1469"></a>
+<span class="sourceLineNo">1470</span><a name="line.1470"></a>
+<span class="sourceLineNo">1471</span>        return props;<a name="line.1471"></a>
+<span class="sourceLineNo">1472</span>    }<a name="line.1472"></a>
+<span class="sourceLineNo">1473</span><a name="line.1473"></a>
+<span class="sourceLineNo">1474</span>    /**<a name="line.1474"></a>
+<span class="sourceLineNo">1475</span>     * Read the specified system property, using an AccessController so that<a name="line.1475"></a>
+<span class="sourceLineNo">1476</span>     * the property can be read if JCL has been granted the appropriate<a name="line.1476"></a>
+<span class="sourceLineNo">1477</span>     * security rights even if the calling code has not.<a name="line.1477"></a>
+<span class="sourceLineNo">1478</span>     * &lt;p&gt;<a name="line.1478"></a>
+<span class="sourceLineNo">1479</span>     * Take care not to expose the value returned by this method to the<a name="line.1479"></a>
+<span class="sourceLineNo">1480</span>     * calling application in any way; otherwise the calling app can use that<a name="line.1480"></a>
+<span class="sourceLineNo">1481</span>     * info to access data that should not be available to it.<a name="line.1481"></a>
+<span class="sourceLineNo">1482</span>     */<a name="line.1482"></a>
+<span class="sourceLineNo">1483</span>    private static String getSystemProperty(final String key, final String def)<a name="line.1483"></a>
+<span class="sourceLineNo">1484</span>        throws SecurityException {<a name="line.1484"></a>
+<span class="sourceLineNo">1485</span>        return (String) AccessController.doPrivileged(<a name="line.1485"></a>
+<span class="sourceLineNo">1486</span>                new PrivilegedAction() {<a name="line.1486"></a>
+<span class="sourceLineNo">1487</span>                    public Object run() {<a name="line.1487"></a>
+<span class="sourceLineNo">1488</span>                        return System.getProperty(key, def);<a name="line.1488"></a>
+<span class="sourceLineNo">1489</span>                    }<a name="line.1489"></a>
+<span class="sourceLineNo">1490</span>                });<a name="line.1490"></a>
+<span class="sourceLineNo">1491</span>    }<a name="line.1491"></a>
+<span class="sourceLineNo">1492</span><a name="line.1492"></a>
+<span class="sourceLineNo">1493</span>    /**<a name="line.1493"></a>
+<span class="sourceLineNo">1494</span>     * Determines whether the user wants internal diagnostic output. If so,<a name="line.1494"></a>
+<span class="sourceLineNo">1495</span>     * returns an appropriate writer object. Users can enable diagnostic<a name="line.1495"></a>
+<span class="sourceLineNo">1496</span>     * output by setting the system property named {@link #DIAGNOSTICS_DEST_PROPERTY} to<a name="line.1496"></a>
+<span class="sourceLineNo">1497</span>     * a filename, or the special values STDOUT or STDERR.<a name="line.1497"></a>
+<span class="sourceLineNo">1498</span>     */<a name="line.1498"></a>
+<span class="sourceLineNo">1499</span>    private static PrintStream initDiagnostics() {<a name="line.1499"></a>
+<span class="sourceLineNo">1500</span>        String dest;<a name="line.1500"></a>
+<span class="sourceLineNo">1501</span>        try {<a name="line.1501"></a>
+<span class="sourceLineNo">1502</span>            dest = getSystemProperty(DIAGNOSTICS_DEST_PROPERTY, null);<a name="line.1502"></a>
+<span class="sourceLineNo">1503</span>            if (dest == null) {<a name="line.1503"></a>
+<span class="sourceLineNo">1504</span>                return null;<a name="line.1504"></a>
+<span class="sourceLineNo">1505</span>            }<a name="line.1505"></a>
+<span class="sourceLineNo">1506</span>        } catch (SecurityException ex) {<a name="line.1506"></a>
+<span class="sourceLineNo">1507</span>            // We must be running in some very secure environment.<a name="line.1507"></a>
+<span class="sourceLineNo">1508</span>            // We just have to assume output is not wanted..<a name="line.1508"></a>
+<span class="sourceLineNo">1509</span>            return null;<a name="line.1509"></a>
+<span class="sourceLineNo">1510</span>        }<a name="line.1510"></a>
+<span class="sourceLineNo">1511</span><a name="line.1511"></a>
+<span class="sourceLineNo">1512</span>        if (dest.equals("STDOUT")) {<a name="line.1512"></a>
+<span class="sourceLineNo">1513</span>            return System.out;<a name="line.1513"></a>
+<span class="sourceLineNo">1514</span>        } else if (dest.equals("STDERR")) {<a name="line.1514"></a>
+<span class="sourceLineNo">1515</span>            return System.err;<a name="line.1515"></a>
+<span class="sourceLineNo">1516</span>        } else {<a name="line.1516"></a>
+<span class="sourceLineNo">1517</span>            try {<a name="line.1517"></a>
+<span class="sourceLineNo">1518</span>                // open the file in append mode<a name="line.1518"></a>
+<span class="sourceLineNo">1519</span>                FileOutputStream fos = new FileOutputStream(dest, true);<a name="line.1519"></a>
+<span class="sourceLineNo">1520</span>                return new PrintStream(fos);<a name="line.1520"></a>
+<span class="sourceLineNo">1521</span>            } catch (IOException ex) {<a name="line.1521"></a>
+<span class="sourceLineNo">1522</span>                // We should report this to the user - but how?<a name="line.1522"></a>
+<span class="sourceLineNo">1523</span>                return null;<a name="line.1523"></a>
+<span class="sourceLineNo">1524</span>            }<a name="line.1524"></a>
+<span class="sourceLineNo">1525</span>        }<a name="line.1525"></a>
+<span class="sourceLineNo">1526</span>    }<a name="line.1526"></a>
+<span class="sourceLineNo">1527</span><a name="line.1527"></a>
+<span class="sourceLineNo">1528</span>    /**<a name="line.1528"></a>
+<span class="sourceLineNo">1529</span>     * Indicates true if the user has enabled internal logging.<a name="line.1529"></a>
+<span class="sourceLineNo">1530</span>     * &lt;p&gt;<a name="line.1530"></a>
+<span class="sourceLineNo">1531</span>     * By the way, sorry for the incorrect grammar, but calling this method<a name="line.1531"></a>
+<span class="sourceLineNo">1532</span>     * areDiagnosticsEnabled just isn't java beans style.<a name="line.1532"></a>
+<span class="sourceLineNo">1533</span>     *<a name="line.1533"></a>
+<span class="sourceLineNo">1534</span>     * @return true if calls to logDiagnostic will have any effect.<a name="line.1534"></a>
+<span class="sourceLineNo">1535</span>     * @since 1.1<a name="line.1535"></a>
+<span class="sourceLineNo">1536</span>     */<a name="line.1536"></a>
+<span class="sourceLineNo">1537</span>    protected static boolean isDiagnosticsEnabled() {<a name="line.1537"></a>
+<span class="sourceLineNo">1538</span>        return diagnosticsStream != null;<a name="line.1538"></a>
+<span class="sourceLineNo">1539</span>    }<a name="line.1539"></a>
+<span class="sourceLineNo">1540</span><a name="line.1540"></a>
+<span class="sourceLineNo">1541</span>    /**<a name="line.1541"></a>
+<span class="sourceLineNo">1542</span>     * Write the specified message to the internal logging destination.<a name="line.1542"></a>
+<span class="sourceLineNo">1543</span>     * &lt;p&gt;<a name="line.1543"></a>
+<span class="sourceLineNo">1544</span>     * Note that this method is private; concrete subclasses of this class<a name="line.1544"></a>
+<span class="sourceLineNo">1545</span>     * should not call it because the diagnosticPrefix string this<a name="line.1545"></a>
+<span class="sourceLineNo">1546</span>     * method puts in front of all its messages is LogFactory@....,<a name="line.1546"></a>
+<span class="sourceLineNo">1547</span>     * while subclasses should put SomeSubClass@...<a name="line.1547"></a>
+<span class="sourceLineNo">1548</span>     * &lt;p&gt;<a name="line.1548"></a>
+<span class="sourceLineNo">1549</span>     * Subclasses should instead compute their own prefix, then call<a name="line.1549"></a>
+<span class="sourceLineNo">1550</span>     * logRawDiagnostic. Note that calling isDiagnosticsEnabled is<a name="line.1550"></a>
+<span class="sourceLineNo">1551</span>     * fine for subclasses.<a name="line.1551"></a>
+<span class="sourceLineNo">1552</span>     * &lt;p&gt;<a name="line.1552"></a>
+<span class="sourceLineNo">1553</span>     * Note that it is safe to call this method before initDiagnostics<a name="line.1553"></a>
+<span class="sourceLineNo">1554</span>     * is called; any output will just be ignored (as isDiagnosticsEnabled<a name="line.1554"></a>
+<span class="sourceLineNo">1555</span>     * will return false).<a name="line.1555"></a>
+<span class="sourceLineNo">1556</span>     *<a name="line.1556"></a>
+<span class="sourceLineNo">1557</span>     * @param msg is the diagnostic message to be output.<a name="line.1557"></a>
+<span class="sourceLineNo">1558</span>     */<a name="line.1558"></a>
+<span class="sourceLineNo">1559</span>    private static final void logDiagnostic(String msg) {<a name="line.1559"></a>
+<span class="sourceLineNo">1560</span>        if (diagnosticsStream != null) {<a name="line.1560"></a>
+<span class="sourceLineNo">1561</span>            diagnosticsStream.print(diagnosticPrefix);<a name="line.1561"></a>
+<span class="sourceLineNo">1562</span>            diagnosticsStream.println(msg);<a name="line.1562"></a>
+<span class="sourceLineNo">1563</span>            diagnosticsStream.flush();<a name="line.1563"></a>
+<span class="sourceLineNo">1564</span>        }<a name="line.1564"></a>
+<span class="sourceLineNo">1565</span>    }<a name="line.1565"></a>
+<span class="sourceLineNo">1566</span><a name="line.1566"></a>
+<span class="sourceLineNo">1567</span>    /**<a name="line.1567"></a>
+<span class="sourceLineNo">1568</span>     * Write the specified message to the internal logging destination.<a name="line.1568"></a>
+<span class="sourceLineNo">1569</span>     *<a name="line.1569"></a>
+<span class="sourceLineNo">1570</span>     * @param msg is the diagnostic message to be output.<a name="line.1570"></a>
+<span class="sourceLineNo">1571</span>     * @since 1.1<a name="line.1571"></a>
+<span class="sourceLineNo">1572</span>     */<a name="line.1572"></a>
+<span class="sourceLineNo">1573</span>    protected static final void logRawDiagnostic(String msg) {<a name="line.1573"></a>
+<span class="sourceLineNo">1574</span>        if (diagnosticsStream != null) {<a name="line.1574"></a>
+<span class="sourceLineNo">1575</span>            diagnosticsStream.println(msg);<a name="line.1575"></a>
+<span class="sourceLineNo">1576</span>            diagnosticsStream.flush();<a name="line.1576"></a>
+<span class="sourceLineNo">1577</span>        }<a name="line.1577"></a>
+<span class="sourceLineNo">1578</span>    }<a name="line.1578"></a>
+<span class="sourceLineNo">1579</span><a name="line.1579"></a>
+<span class="sourceLineNo">1580</span>    /**<a name="line.1580"></a>
+<span class="sourceLineNo">1581</span>     * Generate useful diagnostics regarding the classloader tree for<a name="line.1581"></a>
+<span class="sourceLineNo">1582</span>     * the specified class.<a name="line.1582"></a>
+<span class="sourceLineNo">1583</span>     * &lt;p&gt;<a name="line.1583"></a>
+<span class="sourceLineNo">1584</span>     * As an example, if the specified class was loaded via a webapp's<a name="line.1584"></a>
+<span class="sourceLineNo">1585</span>     * classloader, then you may get the following output:<a name="line.1585"></a>
+<span class="sourceLineNo">1586</span>     * &lt;pre&gt;<a name="line.1586"></a>
+<span class="sourceLineNo">1587</span>     * Class com.acme.Foo was loaded via classloader 11111<a name="line.1587"></a>
+<span class="sourceLineNo">1588</span>     * ClassLoader tree: 11111 -&gt; 22222 (SYSTEM) -&gt; 33333 -&gt; BOOT<a name="line.1588"></a>
+<span class="sourceLineNo">1589</span>     * &lt;/pre&gt;<a name="line.1589"></a>
+<span class="sourceLineNo">1590</span>     * &lt;p&gt;<a name="line.1590"></a>
+<span class="sourceLineNo">1591</span>     * This method returns immediately if isDiagnosticsEnabled()<a name="line.1591"></a>
+<span class="sourceLineNo">1592</span>     * returns false.<a name="line.1592"></a>
+<span class="sourceLineNo">1593</span>     *<a name="line.1593"></a>
+<span class="sourceLineNo">1594</span>     * @param clazz is the class whose classloader + tree are to be<a name="line.1594"></a>
+<span class="sourceLineNo">1595</span>     * output.<a name="line.1595"></a>
+<span class="sourceLineNo">1596</span>     */<a name="line.1596"></a>
+<span class="sourceLineNo">1597</span>    private static void logClassLoaderEnvironment(Class clazz) {<a name="line.1597"></a>
+<span class="sourceLineNo">1598</span>        if (!isDiagnosticsEnabled()) {<a name="line.1598"></a>
+<span class="sourceLineNo">1599</span>            return;<a name="line.1599"></a>
+<span class="sourceLineNo">1600</span>        }<a name="line.1600"></a>
+<span class="sourceLineNo">1601</span><a name="line.1601"></a>
+<span class="sourceLineNo">1602</span>        try {<a name="line.1602"></a>
+<span class="sourceLineNo">1603</span>            // Deliberately use System.getProperty here instead of getSystemProperty; if<a name="line.1603"></a>
+<span class="sourceLineNo">1604</span>            // the overall security policy for the calling application forbids access to<a name="line.1604"></a>
+<span class="sourceLineNo">1605</span>            // these variables then we do not want to output them to the diagnostic stream.<a name="line.1605"></a>
+<span class="sourceLineNo">1606</span>            logDiagnostic("[ENV] Extension directories (java.ext.dir): " + System.getProperty("java.ext.dir"));<a name="line.1606"></a>
+<span class="sourceLineNo">1607</span>            logDiagnostic("[ENV] Application classpath (java.class.path): " + System.getProperty("java.class.path"));<a name="line.1607"></a>
+<span class="sourceLineNo">1608</span>        } catch (SecurityException ex) {<a name="line.1608"></a>
+<span class="sourceLineNo">1609</span>            logDiagnostic("[ENV] Security setting prevent interrogation of system classpaths.");<a name="line.1609"></a>
+<span class="sourceLineNo">1610</span>        }<a name="line.1610"></a>
+<span class="sourceLineNo">1611</span><a name="line.1611"></a>
+<span class="sourceLineNo">1612</span>        String className = clazz.getName();<a name="line.1612"></a>
+<span class="sourceLineNo">1613</span>        ClassLoader classLoader;<a name="line.1613"></a>
+<span class="sourceLineNo">1614</span><a name="line.1614"></a>
+<span class="sourceLineNo">1615</span>        try {<a name="line.1615"></a>
+<span class="sourceLineNo">1616</span>            classLoader = getClassLoader(clazz);<a name="line.1616"></a>
+<span class="sourceLineNo">1617</span>        } catch (SecurityException ex) {<a name="line.1617"></a>
+<span class="sourceLineNo">1618</span>            // not much useful diagnostics we can print here!<a name="line.1618"></a>
+<span class="sourceLineNo">1619</span>            logDiagnostic("[ENV] Security forbids determining the classloader for " + className);<a name="line.1619"></a>
+<span class="sourceLineNo">1620</span>            return;<a name="line.1620"></a>
+<span class="sourceLineNo">1621</span>        }<a name="line.1621"></a>
+<span class="sourceLineNo">1622</span><a name="line.1622"></a>
+<span class="sourceLineNo">1623</span>        logDiagnostic("[ENV] Class " + className + " was loaded via classloader " + objectId(classLoader));<a name="line.1623"></a>
+<span class="sourceLineNo">1624</span>        logHierarchy("[ENV] Ancestry of classloader which loaded " + className + " is ", classLoader);<a name="line.1624"></a>
+<span class="sourceLineNo">1625</span>    }<a name="line.1625"></a>
+<span class="sourceLineNo">1626</span><a name="line.1626"></a>
+<span class="sourceLineNo">1627</span>    /**<a name="line.1627"></a>
+<span class="sourceLineNo">1628</span>     * Logs diagnostic messages about the given classloader<a name="line.1628"></a>
+<span class="sourceLineNo">1629</span>     * and it's hierarchy. The prefix is prepended to the message<a name="line.1629"></a>
+<span class="sourceLineNo">1630</span>     * and is intended to make it easier to understand the logs.<a name="line.1630"></a>
+<span class="sourceLineNo">1631</span>     * @param prefix<a name="line.1631"></a>
+<span class="sourceLineNo">1632</span>     * @param classLoader<a name="line.1632"></a>
+<span class="sourceLineNo">1633</span>     */<a name="line.1633"></a>
+<span class="sourceLineNo">1634</span>    private static void logHierarchy(String prefix, ClassLoader classLoader) {<a name="line.1634"></a>
+<span class="sourceLineNo">1635</span>        if (!isDiagnosticsEnabled()) {<a name="line.1635"></a>
+<span class="sourceLineNo">1636</span>            return;<a name="line.1636"></a>
+<span class="sourceLineNo">1637</span>        }<a name="line.1637"></a>
+<span class="sourceLineNo">1638</span>        ClassLoader systemClassLoader;<a name="line.1638"></a>
+<span class="sourceLineNo">1639</span>        if (classLoader != null) {<a name="line.1639"></a>
+<span class="sourceLineNo">1640</span>            final String classLoaderString = classLoader.toString();<a name="line.1640"></a>
+<span class="sourceLineNo">1641</span>            logDiagnostic(prefix + objectId(classLoader) + " == '" + classLoaderString + "'");<a name="line.1641"></a>
+<span class="sourceLineNo">1642</span>        }<a name="line.1642"></a>
+<span class="sourceLineNo">1643</span><a name="line.1643"></a>
+<span class="sourceLineNo">1644</span>        try {<a name="line.1644"></a>
+<span class="sourceLineNo">1645</span>            systemClassLoader = ClassLoader.getSystemClassLoader();<a name="line.1645"></a>
+<span class="sourceLineNo">1646</span>        } catch (SecurityException ex) {<a name="line.1646"></a>
+<span class="sourceLineNo">1647</span>            logDiagnostic(prefix + "Security forbids determining the system classloader.");<a name="line.1647"></a>
+<span class="sourceLineNo">1648</span>            return;<a name="line.1648"></a>
+<span class="sourceLineNo">1649</span>        }<a name="line.1649"></a>
+<span class="sourceLineNo">1650</span>        if (classLoader != null) {<a name="line.1650"></a>
+<span class="sourceLineNo">1651</span>            final StringBuffer buf = new StringBuffer(prefix + "ClassLoader tree:");<a name="line.1651"></a>
+<span class="sourceLineNo">1652</span>            for(;;) {<a name="line.1652"></a>
+<span class="sourceLineNo">1653</span>                buf.append(objectId(classLoader));<a name="line.1653"></a>
+<span class="sourceLineNo">1654</span>                if (classLoader == systemClassLoader) {<a name="line.1654"></a>
+<span class="sourceLineNo">1655</span>                    buf.append(" (SYSTEM) ");<a name="line.1655"></a>
+<span class="sourceLineNo">1656</span>                }<a name="line.1656"></a>
+<span class="sourceLineNo">1657</span><a name="line.1657"></a>
+<span class="sourceLineNo">1658</span>                try {<a name="line.1658"></a>
+<span class="sourceLineNo">1659</span>                    classLoader = classLoader.getParent();<a name="line.1659"></a>
+<span class="sourceLineNo">1660</span>                } catch (SecurityException ex) {<a name="line.1660"></a>
+<span class="sourceLineNo">1661</span>                    buf.append(" --&gt; SECRET");<a name="line.1661"></a>
+<span class="sourceLineNo">1662</span>                    break;<a name="line.1662"></a>
+<span class="sourceLineNo">1663</span>                }<a name="line.1663"></a>
+<span class="sourceLineNo">1664</span><a name="line.1664"></a>
+<span class="sourceLineNo">1665</span>                buf.append(" --&gt; ");<a name="line.1665"></a>
+<span class="sourceLineNo">1666</span>                if (classLoader == null) {<a name="line.1666"></a>
+<span class="sourceLineNo">1667</span>                    buf.append("BOOT");<a name="line.1667"></a>
+<span class="sourceLineNo">1668</span>                    break;<a name="line.1668"></a>
+<span class="sourceLineNo">1669</span>                }<a name="line.1669"></a>
+<span class="sourceLineNo">1670</span>            }<a name="line.1670"></a>
+<span class="sourceLineNo">1671</span>            logDiagnostic(buf.toString());<a name="line.1671"></a>
+<span class="sourceLineNo">1672</span>        }<a name="line.1672"></a>
+<span class="sourceLineNo">1673</span>    }<a name="line.1673"></a>
+<span class="sourceLineNo">1674</span><a name="line.1674"></a>
+<span class="sourceLineNo">1675</span>    /**<a name="line.1675"></a>
+<span class="sourceLineNo">1676</span>     * Returns a string that uniquely identifies the specified object, including<a name="line.1676"></a>
+<span class="sourceLineNo">1677</span>     * its class.<a name="line.1677"></a>
+<span class="sourceLineNo">1678</span>     * &lt;p&gt;<a name="line.1678"></a>
+<span class="sourceLineNo">1679</span>     * The returned string is of form "classname@hashcode", ie is the same as<a name="line.1679"></a>
+<span class="sourceLineNo">1680</span>     * the return value of the Object.toString() method, but works even when<a name="line.1680"></a>
+<span class="sourceLineNo">1681</span>     * the specified object's class has overidden the toString method.<a name="line.1681"></a>
+<span class="sourceLineNo">1682</span>     *<a name="line.1682"></a>
+<span class="sourceLineNo">1683</span>     * @param o may be null.<a name="line.1683"></a>
+<span class="sourceLineNo">1684</span>     * @return a string of form classname@hashcode, or "null" if param o is null.<a name="line.1684"></a>
+<span class="sourceLineNo">1685</span>     * @since 1.1<a name="line.1685"></a>
+<span class="sourceLineNo">1686</span>     */<a name="line.1686"></a>
+<span class="sourceLineNo">1687</span>    public static String objectId(Object o) {<a name="line.1687"></a>
+<span class="sourceLineNo">1688</span>        if (o == null) {<a name="line.1688"></a>
+<span class="sourceLineNo">1689</span>            return "null";<a name="line.1689"></a>
+<span class="sourceLineNo">1690</span>        } else {<a name="line.1690"></a>
+<span class="sourceLineNo">1691</span>            return o.getClass().getName() + "@" + System.identityHashCode(o);<a name="line.1691"></a>
+<span class="sourceLineNo">1692</span>        }<a name="line.1692"></a>
+<span class="sourceLineNo">1693</span>    }<a name="line.1693"></a>
+<span class="sourceLineNo">1694</span><a name="line.1694"></a>
+<span class="sourceLineNo">1695</span>    // ----------------------------------------------------------------------<a name="line.1695"></a>
+<span class="sourceLineNo">1696</span>    // Static initialiser block to perform initialisation at class load time.<a name="line.1696"></a>
+<span class="sourceLineNo">1697</span>    //<a name="line.1697"></a>
+<span class="sourceLineNo">1698</span>    // We can't do this in the class constructor, as there are many<a name="line.1698"></a>
+<span class="sourceLineNo">1699</span>    // static methods on this class that can be called before any<a name="line.1699"></a>
+<span class="sourceLineNo">1700</span>    // LogFactory instances are created, and they depend upon this<a name="line.1700"></a>
+<span class="sourceLineNo">1701</span>    // stuff having been set up.<a name="line.1701"></a>
+<span class="sourceLineNo">1702</span>    //<a name="line.1702"></a>
+<span class="sourceLineNo">1703</span>    // Note that this block must come after any variable declarations used<a name="line.1703"></a>
+<span class="sourceLineNo">1704</span>    // by any methods called from this block, as we want any static initialiser<a name="line.1704"></a>
+<span class="sourceLineNo">1705</span>    // associated with the variable to run first. If static initialisers for<a name="line.1705"></a>
+<span class="sourceLineNo">1706</span>    // variables run after this code, then (a) their value might be needed<a name="line.1706"></a>
+<span class="sourceLineNo">1707</span>    // by methods called from here, and (b) they might *override* any value<a name="line.1707"></a>
+<span class="sourceLineNo">1708</span>    // computed here!<a name="line.1708"></a>
+<span class="sourceLineNo">1709</span>    //<a name="line.1709"></a>
+<span class="sourceLineNo">1710</span>    // So the wisest thing to do is just to place this code at the very end<a name="line.1710"></a>
+<span class="sourceLineNo">1711</span>    // of the class file.<a name="line.1711"></a>
+<span class="sourceLineNo">1712</span>    // ----------------------------------------------------------------------<a name="line.1712"></a>
+<span class="sourceLineNo">1713</span><a name="line.1713"></a>
+<span class="sourceLineNo">1714</span>    static {<a name="line.1714"></a>
+<span class="sourceLineNo">1715</span>        // note: it's safe to call methods before initDiagnostics (though<a name="line.1715"></a>
+<span class="sourceLineNo">1716</span>        // diagnostic output gets discarded).<a name="line.1716"></a>
+<span class="sourceLineNo">1717</span>        thisClassLoader = getClassLoader(LogFactory.class);<a name="line.1717"></a>
+<span class="sourceLineNo">1718</span>        // In order to avoid confusion where multiple instances of JCL are<a name="line.1718"></a>
+<span class="sourceLineNo">1719</span>        // being used via different classloaders within the same app, we<a name="line.1719"></a>
+<span class="sourceLineNo">1720</span>        // ensure each logged message has a prefix of form<a name="line.1720"></a>
+<span class="sourceLineNo">1721</span>        // [LogFactory from classloader OID]<a name="line.1721"></a>
+<span class="sourceLineNo">1722</span>        //<a name="line.1722"></a>
+<span class="sourceLineNo">1723</span>        // Note that this prefix should be kept consistent with that<a name="line.1723"></a>
+<span class="sourceLineNo">1724</span>        // in LogFactoryImpl. However here we don't need to output info<a name="line.1724"></a>
+<span class="sourceLineNo">1725</span>        // about the actual *instance* of LogFactory, as all methods that<a name="line.1725"></a>
+<span class="sourceLineNo">1726</span>        // output diagnostics from this class are static.<a name="line.1726"></a>
+<span class="sourceLineNo">1727</span>        String classLoaderName;<a name="line.1727"></a>
+<span class="sourceLineNo">1728</span>        try {<a name="line.1728"></a>
+<span class="sourceLineNo">1729</span>            ClassLoader classLoader = thisClassLoader;<a name="line.1729"></a>
+<span class="sourceLineNo">1730</span>            if (thisClassLoader == null) {<a name="line.1730"></a>
+<span class="sourceLineNo">1731</span>                classLoaderName = "BOOTLOADER";<a name="line.1731"></a>
+<span class="sourceLineNo">1732</span>            } else {<a name="line.1732"></a>
+<span class="sourceLineNo">1733</span>                classLoaderName = objectId(classLoader);<a name="line.1733"></a>
+<span class="sourceLineNo">1734</span>            }<a name="line.1734"></a>
+<span class="sourceLineNo">1735</span>        } catch (SecurityException e) {<a name="line.1735"></a>
+<span class="sourceLineNo">1736</span>            classLoaderName = "UNKNOWN";<a name="line.1736"></a>
+<span class="sourceLineNo">1737</span>        }<a name="line.1737"></a>
+<span class="sourceLineNo">1738</span>        diagnosticPrefix = "[LogFactory from " + classLoaderName + "] ";<a name="line.1738"></a>
+<span class="sourceLineNo">1739</span>        diagnosticsStream = initDiagnostics();<a name="line.1739"></a>
+<span class="sourceLineNo">1740</span>        logClassLoaderEnvironment(LogFactory.class);<a name="line.1740"></a>
+<span class="sourceLineNo">1741</span>        factories = createFactoryStore();<a name="line.1741"></a>
+<span class="sourceLineNo">1742</span>        if (isDiagnosticsEnabled()) {<a name="line.1742"></a>
+<span class="sourceLineNo">1743</span>            logDiagnostic("BOOTSTRAP COMPLETED");<a name="line.1743"></a>
+<span class="sourceLineNo">1744</span>        }<a name="line.1744"></a>
+<span class="sourceLineNo">1745</span>    }<a name="line.1745"></a>
+<span class="sourceLineNo">1746</span>}<a name="line.1746"></a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre>
+</div>
+</body>
+</html>
