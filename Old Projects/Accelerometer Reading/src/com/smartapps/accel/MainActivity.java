@@ -42,6 +42,10 @@ public class MainActivity extends Activity implements SensorEventListener,
 	private TextView StepFreq;
 	private boolean started = false;
 	
+	private static int ORDER = 10;
+	private static double[] A_coeffs = {1, -8.66133120135126, 33.8379111594403, -78.5155814397813, 119.815727607323, -125.635905892562, 91.6674737604170, -45.9506609307247, 15.1439586368786, -2.96290103992494, 0.261309426400923};
+	private static double[] B_coeffs = {8.40968636959052e-11, 8.40968636959052e-10, 3.78435886631574e-09, 1.00916236435086e-08, 1.76603413761401e-08, 2.11924096513681e-08, 1.76603413761401e-08, 1.00916236435086e-08, 3.78435886631574e-09, 8.40968636959052e-10, 8.40968636959052e-11};
+	
 	private ArrayList<AccelData> sensorData;
 	private ArrayList<AccelData> linData;
 	private ArrayList<AccelData> gravData;
@@ -139,7 +143,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 			long timestamp = System.currentTimeMillis();
 			switch(type){
 				case Sensor.TYPE_LINEAR_ACCELERATION:
-					linVals = lowPass( event.values.clone(), linVals );
+					linVals = event.values.clone();
 					linData.add(new AccelData(timestamp, linVals[0], linVals[1], linVals[2]));
 		  			if (linData.size() > 50){
 			  	        int size = linData.size();
@@ -485,6 +489,28 @@ public class MainActivity extends Activity implements SensorEventListener,
 	        output[i] = output[i] + ALPHA * (input[i] - output[i]);
 	    }
 	    return output;
+	}
+	
+	public void filter(){
+		double[] x_orig = new double[plotData.size()];
+		double[] y_filt = new double[plotData.size()];
+		
+		for (int i=0;i<plotData.size();i++){
+			x_orig[i] = plotData.get(i).getZ();
+		}
+		
+		int nSize = x_orig.length;
+		for (int n=0;n<nSize;n++){
+			for (int m=0;m<ORDER;m++){
+				if (n-m >= 0)
+					y_filt[n] += x_orig[n-m]*B_coeffs[m];
+				
+				if (n-m >=1 && m >=1)
+					y_filt[n] -= y_filt[n-m]*A_coeffs[m];
+			}
+		}
+		
+		return;
 	}
 
 }
