@@ -35,7 +35,7 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	StepDetector yAxisStepDetector;
 	StepDetector zAxisStepDetector;
 	
-	//FFT library variables
+	//FFT library variable
 	private final int FFT_SIZE = 512;
 	private DoubleFFT_1D fftlib = new DoubleFFT_1D(FFT_SIZE);
 	private static double[] accelFFTfreq = {0,0,0};
@@ -57,8 +57,8 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	// Sensor Energy Data
 	private double[] accelEnergy = new double[3];
 	private double[] gyroEnergy = new double[3];
-	private final static double ENERGYTHRESHLOW = 0.15;   //should eventually be set via calibration
-	private final static double ENERGYTHRESHHIGH = 2.35;  //should eventually be set via calibration
+	private final static double ENERGYTHRESHLOW = 0.15;
+	private final static double ENERGYTHRESHHIGH = 2.35;
 	private final static int NOACTIVITY = 4;
 	
 	// filter data

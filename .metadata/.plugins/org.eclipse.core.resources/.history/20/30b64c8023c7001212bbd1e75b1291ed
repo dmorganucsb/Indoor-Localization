@@ -35,7 +35,7 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	StepDetector yAxisStepDetector;
 	StepDetector zAxisStepDetector;
 	
-	//FFT library variables
+	//FFT library variable
 	private final int FFT_SIZE = 512;
 	private DoubleFFT_1D fftlib = new DoubleFFT_1D(FFT_SIZE);
 	private static double[] accelFFTfreq = {0,0,0};
@@ -50,15 +50,15 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	public final static int Z_AXIS     = 2;
 	
 	// data arrays
-	private ArrayList<AccelData> accData;  // Accelerometer data array 
-	private ArrayList<AccelData> gyroData; // Gyroscope data array 
-	private ArrayList<AccelData> gravData; // Gravity data array 
+	private ArrayList<AccelData> accData; // Accelerometer data array 
+	private ArrayList<AccelData> gyroData; // Accelerometer data array 
+	private ArrayList<AccelData> gravData; // Accelerometer data array 
 	
 	// Sensor Energy Data
 	private double[] accelEnergy = new double[3];
 	private double[] gyroEnergy = new double[3];
-	private final static double ENERGYTHRESHLOW = 0.15;   //should eventually be set via calibration
-	private final static double ENERGYTHRESHHIGH = 2.35;  //should eventually be set via calibration
+	private final static double ENERGYTHRESHLOW = 0.15;
+	private final static double ENERGYTHRESHHIGH = 2.35;
 	private final static int NOACTIVITY = 4;
 	
 	// filter data
@@ -67,20 +67,20 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	private static double[] B_coeffs = {8.40968636959052e-11, 8.40968636959052e-10, 3.78435886631574e-09, 1.00916236435086e-08, 1.76603413761401e-08, 2.11924096513681e-08, 1.76603413761401e-08, 1.00916236435086e-08, 3.78435886631574e-09, 8.40968636959052e-10, 8.40968636959052e-11};
 	
 	//value display refresh rate
-	private final int REFRESH_RATE 		= 2;                // rate of value/screen updates per second
-	private final double SENSOR_DELAY 	= .01;              // sensor delay in seconds 
-	private final double Fs		   		= 1/SENSOR_DELAY;   //sampling rate of sensor data in Hz
-	private int counter 		   		= 0;                //counter for refresh rate
+	private final int REFRESH_RATE = 2;              // rate of value/screen updates per second
+	private final double SENSOR_DELAY = .01;          // sensor delay in seconds 
+	private final double Fs		   = 1/SENSOR_DELAY;  //sampling rate of sensor data in Hz
+	private int counter 		   = 0;               //counter for refresh rate
 	
 	//display variable
-	private TextView x_stepFreq;    //display for x frequency
-	private TextView y_stepFreq;    //display for y frequency
-	private TextView z_stepFreq;    //display for z frequency
+	private TextView x_stepFreq;   //display for x frequency
+	private TextView y_stepFreq;   //display for y frequency
+	private TextView z_stepFreq;   //display for z frequency
+	private TextView thetaWRTN;   //display for angle
 	private TextView x_stepEnergy;  //display for X axis Energy Detection
 	private TextView y_stepEnergy;  //display for Y axis Energy Detection
 	private TextView z_stepEnergy;  //display for Z axis Energy Detection
-	private TextView step_length;   // display for step length
-	private TextView thetaWRTN;     //display for angle
+	private TextView step_length;  // display for step length
 	
 	// values to compute orientation
     public static float[] mInclin;
@@ -90,11 +90,28 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
     public static float[] rotValues = new float[3];
 	
     // variables for pedometer
-    private TextView step_num_display;
     private static int step_value = 0;
+    private TextView step_num_display;
+    public static long zAccDataCurPeakTS = 0;
+    public static double zAccDataCurPeak = 0;
+    public static boolean zAccDataPeakVer = false;
+    public static long zAccDataCurTroughTS = 0;
+    public static double zAccDataCurTrough = 0;
+    public static boolean zAccDataTroughVer = false;
+	public final static int NO_PEAK     = 0;
+	public final static int PEAK     = 1;
+	public final static int TROUGH     = 2;
+	public final static int LOOKBACKLENGTH = 20;
+	public final static long LOOKFORWARDTIME = 100; // in ms
+	public final static double NOISEFLOOR = 1.0;
+	public final static int MAXMIN = 1;
 	public final static double FREQTHRESH = 0.3;
+	public final static double DIFFTHRESHMIN = 1;
+	public final static double DIFFTHRESHMAX = 6;
+	public static double highestPeak = 0;
+	public static double testPeakValue = 0;
+	public static double testTroughValue = 0;
 	
-	//two control buttons
 	private Button reset_btn, train_btn;
 	
 	@Override
@@ -421,6 +438,231 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 			}
 			return;
 	    }
+	}
+	/*
+	private int findCycle(int Axis, double currPeak, long currPeakTS, double currTrough, long currTroughTS double avgValue){
+		double AccData[] = new double[accData.size()];
+	    //double AccDataAvg = 0;
+	    double AccDataCurValue = 0;
+	    long AccDataCurValueTS = 0;
+	    double AccDataPrevValue = 0;
+
+		for (int i=0;i<accData.size();i++){
+			AccData[i] = accData.get(i).getValue(Z_AXIS);
+			AccDataAvg += AccData[i];
+		}
+		AccDataAvg = AccDataAvg / AccData.length;
+		AccDataCurValue = AccData[AccData.length-1];
+		AccDataCurValueTS = accData.get(AccData.length-1).getTimestamp();
+		
+		//if not currently holding a peak look for a new peak
+		if (currPeak == 0){
+			int j = 1;
+			while (j < LOOKBACKLENGTH && (AccData.length - j) > 0 ){
+				AccDataPrevValue = AccData[AccData.length-1-j];
+				if (AccDataPrevValue > AccDataCurValue)
+					break; //not a true peak
+				j++;
+			}
+			if (j == LOOKBACKLENGTH){
+				//found a peak (I think) need to verify by looking at future data
+				zAccDataCurPeak = AccDataCurValue; // store the supposed peak
+				zAccDataCurPeakTS = AccDataCurValueTS; // get peak time stamp
+				return NO_PEAK;
+			}
+			return NO_PEAK; //keep searching
+		}
+		else if (zAccDataCurPeak != 0 && zAccDataCurTrough == 0){
+			if (zAccDataPeakVer = false){
+				//still need to verify the current "supposed" peak
+				if (zAccDataCurPeakTS + LOOKFORWARDTIME > AccDataCurValueTS){
+					// try to verify peak
+					if (zAccDataCurPeak > AccDataCurValue && zAccDataCurPeak > AccDataAvg && zAccDataCurPeak > NOISEFLOOR){
+						// still a peak (but may need more verification)
+						return NO_PEAK;
+					}
+					else {  //not a true peak after all
+						zAccDataCurPeak = AccDataCurValue; // since the new value is larger, test it as new peak
+						zAccDataCurPeakTS = AccDataCurValueTS;
+						return NO_PEAK;
+					}
+				}
+				else //peak verified! time to start looking for a trough
+				{
+					zAccDataPeakVer = true; //peak verified
+					// add to running average of last N peaks to help with false detection later
+					return PEAK;
+				}
+				
+			}
+			else{
+				//we have a peak, lets look for a trough here
+				int j = 1;
+				while (j < LOOKBACKLENGTH && (AccData.length - j) > 0 ){
+					AccDataPrevValue = AccData[AccData.length-1-j];
+					if (AccDataPrevValue < AccDataCurValue)
+						break; //not a true trough
+					j++;
+				}
+				if (j == LOOKBACKLENGTH){
+					//found a trough (I think) need to verify by looking at future data
+					zAccDataCurTrough = AccDataCurValue; // store the supposed trough
+					zAccDataCurTroughTS = AccDataCurValueTS; // get trough time stamp
+					return NO_PEAK;
+				}
+				return NO_PEAK; //keep searching
+				
+			}
+			
+		}
+		else if (zAccDataCurPeak != 0 && zAccDataCurTrough != 0){
+			//found a peak and a supposed trough
+			//if (yAccDataTroughVer = false){
+				// still need to verify the current "supposed" trough
+				if (zAccDataCurTroughTS + LOOKFORWARDTIME > zAccDataCurValueTS){
+					// try to verify trough
+					if (zAccDataCurTrough < zAccDataCurValue && zAccDataCurTrough < zAccDataAvg && zAccDataCurTrough < -NOISEFLOOR){
+						// still a peak (but may need more verification)
+						return NO_PEAK;
+					}
+					else {  //not a true trough after all
+						zAccDataCurTrough = zAccDataCurValue; // since the new value is smaller, test it as new trough
+						zAccDataCurTroughTS = zAccDataCurValueTS;
+						return NO_PEAK;
+					}
+				}
+				else { //trough verified time to count the step, and start looking all over again
+					testPeakValue = zAccDataCurPeak;
+					zAccDataCurPeak = 0;
+					testTroughValue = zAccDataCurTrough;
+					zAccDataCurTrough = 0;
+					zAccDataPeakVer = false;
+					return TROUGH;
+					
+					// made need an additional wait time here to further verify the waveform, and if so, we would need
+					// a second flag for trough detected to know we need to enter the further verification routine
+				}
+			//}
+			
+		}
+		else {//(shouldn't get here)
+	        Toast toast = Toast.makeText(getApplicationContext(), "You shouldnt be here", Toast.LENGTH_SHORT);
+	        toast.show();
+		}
+		return NO_PEAK;
+	}
+	*/
+	
+	private int findYCycle(){
+		/*
+		double yAccData[] = new double[accData.size()];
+	    double yAccDataAvg = 0;
+	    double yAccDataCurValue = 0;
+	    long yAccDataCurValueTS = 0;
+	    double yAccDataPrevValue = 0;
+
+		for (int i=0;i<accData.size();i++){
+			yAccData[i] = accData.get(i).getValue(Y_AXIS);
+			yAccDataAvg += yAccData[i];
+		}
+		yAccDataAvg = yAccDataAvg / yAccData.length;
+		yAccDataCurValue = yAccData[yAccData.length-1];
+		yAccDataCurValueTS = accData.get(yAccData.length-1).getTimestamp();
+		
+		//if not currently holding a peak look for a new peak
+		if (zAccDataCurPeak == 0){
+			int j = 1;
+			while (j < LOOKBACKLENGTH && (yAccData.length - j) > 0 ){
+				yAccDataPrevValue = yAccData[yAccData.length-1-j];
+				if (yAccDataPrevValue > yAccDataCurValue)
+					break; //not a true peak
+				j++;
+			}
+			if (j == LOOKBACKLENGTH){
+				//found a peak (I think) need to verify by looking at future data
+				yAccDataCurPeak = yAccDataCurValue; // store the supposed peak
+				yAccDataCurPeakTS = yAccDataCurValueTS; // get peak time stamp
+				return NONE;
+			}
+			return NONE; //keep searching
+		}
+		else if (zAccDataCurPeak != 0 && zAccDataCurTrough == 0){
+			if (zAccDataPeakVer = false){
+				//still need to verify the current "supposed" peak
+				if (zAccDataCurPeakTS + LOOKFORWARDTIME > zAccDataCurValueTS){
+					// try to verify peak
+					if (zAccDataCurPeak > zAccDataCurValue && zAccDataCurPeak > zAccDataAvg && zAccDataCurPeak > NOISEFLOOR){
+						// still a peak (but may need more verification)
+						return NONE;
+					}
+					else {  //not a true peak after all
+						zAccDataCurPeak = zAccDataCurValue; // since the new value is larger, test it as new peak
+						zAccDataCurPeakTS = zAccDataCurValueTS;
+						return NONE;
+					}
+				}
+				else //peak verified! time to start looking for a trough
+				{
+					zAccDataPeakVer = true; //peak verified
+					// add to running average of last N peaks to help with false detection later
+					return PEAK;
+				}
+				
+			}
+			else{
+				//we have a peak, lets look for a trough here
+				int j = 1;
+				while (j < LOOKBACKLENGTH && (zAccData.length - j) > 0 ){
+					zAccDataPrevValue = zAccData[zAccData.length-1-j];
+					if (zAccDataPrevValue < zAccDataCurValue)
+						break; //not a true trough
+					j++;
+				}
+				if (j == LOOKBACKLENGTH){
+					//found a trough (I think) need to verify by looking at future data
+					zAccDataCurTrough = zAccDataCurValue; // store the supposed trough
+					zAccDataCurTroughTS = zAccDataCurValueTS; // get trough time stamp
+					return NONE;
+				}
+				return NONE; //keep searching
+				
+			}
+			
+		}
+		else if (zAccDataCurPeak != 0 && zAccDataCurTrough != 0){
+			//found a peak and a supposed trough
+			//if (yAccDataTroughVer = false){
+				// still need to verify the current "supposed" trough
+				if (zAccDataCurTroughTS + LOOKFORWARDTIME > zAccDataCurValueTS){
+					// try to verify trough
+					if (zAccDataCurTrough < zAccDataCurValue && zAccDataCurTrough < zAccDataAvg && zAccDataCurTrough < -NOISEFLOOR){
+						// still a peak (but may need more verification)
+						return NONE;
+					}
+					else {  //not a true trough after all
+						zAccDataCurTrough = zAccDataCurValue; // since the new value is smaller, test it as new trough
+						zAccDataCurTroughTS = zAccDataCurValueTS;
+						return NONE;
+					}
+				}
+				else { //trough verified time to count the step, and start looking all over again
+					zAccDataCurPeak = 0;
+					zAccDataCurTrough = 0;
+					zAccDataPeakVer = false;
+					return TROUGH;
+					
+					// made need an additional wait time here to further verify the waveform, and if so, we would need
+					// a second flag for trough detected to know we need to enter the further verification routine
+				}
+			//}
+			
+		}
+		else {//(shouldn't get here)
+			Log.d("MyApp", "you shouldn't be in here");
+		}
+		*/
+		return NO_PEAK;
+		
 	}
 	
 	/**

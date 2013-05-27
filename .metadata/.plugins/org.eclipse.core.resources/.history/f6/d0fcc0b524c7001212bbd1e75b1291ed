@@ -11,6 +11,8 @@ public class StepDetector{
 	
 	private double dataCurr;
 	private long dataCurrTS;
+	//private double dataPrev;
+	//private long dataPrevTS;
 	private double peakValue;
 	private long peakTS;                // find a way to use this to improve accuracy (done?)
 	private boolean peakVerified;

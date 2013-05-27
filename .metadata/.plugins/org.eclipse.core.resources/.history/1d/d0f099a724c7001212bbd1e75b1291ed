@@ -7,6 +7,7 @@ public class AccelData{
 	private double y;
 	private double z;
 	
+	
 	public AccelData(long timestamp, double x, double y, double z) {
 		this.timestamp = timestamp;
 		this.x = x;
@@ -35,5 +36,7 @@ public class AccelData{
 		}
 		return returnValue;
 	}
+
+
 
 }
