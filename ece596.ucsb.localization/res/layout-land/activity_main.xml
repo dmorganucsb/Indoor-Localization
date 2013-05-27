@@ -74,7 +74,7 @@
             android:textSize="13sp" />
 
         <CheckBox
-            android:id="@+id/checkBox1"
+            android:id="@+id/cb_x_freq_display"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -90,7 +90,7 @@
             android:textSize="13sp" />
         
          <CheckBox
-            android:id="@+id/checkBox2"
+            android:id="@+id/cb_x_energy_display"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -106,7 +106,7 @@
             android:textSize="13sp" />
         
          <CheckBox
-            android:id="@+id/checkBox3"
+            android:id="@+id/cb_step_num_display"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -122,7 +122,7 @@
             android:textSize="13sp" />
         
          <CheckBox
-            android:id="@+id/checkBox4"
+            android:id="@+id/cb_step_length_display"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -199,7 +199,7 @@
             android:textSize="13sp" />
         
          <CheckBox
-            android:id="@+id/checkBox4"
+            android:id="@+id/cb_y_freq_display"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -215,7 +215,7 @@
             android:textSize="13sp" />
         
          <CheckBox
-            android:id="@+id/checkBox5"
+            android:id="@+id/cb_y_energy_display"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -231,7 +231,7 @@
             android:textSize="13sp" />
         
          <CheckBox
-            android:id="@+id/checkBox6"
+            android:id="@+id/cb_theta_display"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -305,7 +305,7 @@
             android:textSize="13sp" />
 
         <CheckBox
-            android:id="@+id/checkBox21"
+            android:id="@+id/cb_z_freq_display"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -357,7 +357,7 @@
             android:textSize="13sp" />
         
          <CheckBox
-            android:id="@+id/checkBox22"
+            android:id="@+id/cb_z_energy_display"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"

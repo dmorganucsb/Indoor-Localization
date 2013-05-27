@@ -21,6 +21,7 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.TextView;
 import android.widget.Toast;
 import edu.emory.mathcs.jtransforms.fft.DoubleFFT_1D;
@@ -82,6 +83,18 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	private TextView step_length;   // display for step length
 	private TextView thetaWRTN;     //display for angle
 	
+	//display checkboxes
+	private CheckBox cb_x_freq;
+	private CheckBox cb_x_energy;
+	private CheckBox cb_step_num;
+	private CheckBox cb_step_length;
+	private CheckBox cb_y_freq;
+	private CheckBox cb_y_energy;
+	private CheckBox cb_thetaWRTN;
+	private CheckBox cb_z_freq;
+	private CheckBox cb_z_energy;
+	
+	
 	// values to compute orientation
     public static float[] mInclin;
     public static float[] mRot = new float[16];
@@ -108,6 +121,8 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		
 		//create arraylist for accelerometer data
 		accData = new ArrayList<AccelData>();
+		
+		//display data
 		x_stepFreq = (TextView)findViewById( R.id.x_freq_display);
 		y_stepFreq = (TextView)findViewById( R.id.y_freq_display);
 		z_stepFreq = (TextView)findViewById( R.id.z_freq_display);
@@ -115,9 +130,19 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		y_stepEnergy = (TextView)findViewById( R.id.y_energy_display);
 		z_stepEnergy = (TextView)findViewById( R.id.z_energy_display);
 		thetaWRTN = (TextView)findViewById(R.id.theta_display);
-		//axisEnergy = (TextView)findViewById(R.id.energy_display);
 		step_num_display = (TextView)findViewById(R.id.step_num_display);
 		step_length = (TextView)findViewById(R.id.step_length_display);
+		
+		//checkboxes for display data
+		cb_x_freq = (CheckBox) findViewById(R.id.cb_x_freq_display);
+		cb_x_energy = (CheckBox) findViewById(R.id.cb_x_energy_display);
+		cb_step_num = (CheckBox) findViewById(R.id.cb_step_num_display);
+		cb_step_length = (CheckBox) findViewById(R.id.cb_step_length_display);
+		cb_y_freq = (CheckBox) findViewById(R.id.cb_y_freq_display);
+		cb_y_energy = (CheckBox) findViewById(R.id.cb_y_energy_display);
+		cb_thetaWRTN = (CheckBox) findViewById(R.id.cb_theta_display);
+		cb_z_freq = (CheckBox) findViewById(R.id.cb_z_freq_display);
+		cb_z_energy = (CheckBox) findViewById(R.id.cb_z_energy_display);
 		
 		reset_btn = (Button) findViewById(R.id.reset_btn);
 		reset_btn.setOnClickListener(this);
@@ -467,12 +492,13 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	 * @param attrs
 	 */
 	private void updateDisplays(int primary_axis){
-		x_stepFreq.setText(Double.toString(accelFFTfreq[X_AXIS]));
-		y_stepFreq.setText(Double.toString(accelFFTfreq[Y_AXIS]));
-		z_stepFreq.setText(Double.toString(accelFFTfreq[Z_AXIS]));
-		x_stepEnergy.setText(String.format("%.4f", accelEnergy[X_AXIS]));
-		y_stepEnergy.setText(String.format("%.4f", accelEnergy[Y_AXIS]));
-		z_stepEnergy.setText(String.format("%.4f", accelEnergy[Z_AXIS]));
+		
+		x_stepFreq.setText((cb_x_freq.isChecked() ? Double.toString(accelFFTfreq[X_AXIS]):"N.A."));
+		y_stepFreq.setText((cb_y_freq.isChecked() ? Double.toString(accelFFTfreq[Y_AXIS]):"N.A."));
+		z_stepFreq.setText((cb_z_freq.isChecked() ? Double.toString(accelFFTfreq[Z_AXIS]):"N.A."));
+		x_stepEnergy.setText((cb_x_energy.isChecked() ? String.format("%.4f", accelEnergy[X_AXIS]):"N.A."));
+		y_stepEnergy.setText((cb_y_energy.isChecked() ? String.format("%.4f", accelEnergy[Y_AXIS]):"N.A."));
+		z_stepEnergy.setText((cb_z_energy.isChecked() ? String.format("%.4f", accelEnergy[Z_AXIS]):"N.A."));
 		
 		resetColors();
 		
@@ -495,8 +521,8 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		}
 		
 		//step_length.setText(Double.toString(highestPeak));
-		thetaWRTN.setText(Float.toString(rotValues[0]));
-		step_num_display.setText(Integer.toString(step_value));
+		thetaWRTN.setText((cb_thetaWRTN.isChecked() ? Float.toString(rotValues[0]):"N.A."));
+		step_num_display.setText((cb_step_num.isChecked() ? Integer.toString(step_value):"N.A."));
 		
 		return;
 	}
