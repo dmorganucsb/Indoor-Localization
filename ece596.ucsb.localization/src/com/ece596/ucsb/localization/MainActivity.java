@@ -4,9 +4,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.commons.lang3.ArrayUtils;
-
+import weka.classifiers.Evaluation;
+import weka.classifiers.functions.LinearRegression;
+import weka.core.Instances;
+import weka.core.converters.ConverterUtils.DataSource;
 import android.content.Context;
 import android.graphics.Color;
 import android.hardware.Sensor;
@@ -16,6 +18,7 @@ import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
+import android.util.Log;
 import android.view.Menu;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -36,6 +39,15 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	StepDetector yAxisStepDetector;
 	StepDetector zAxisStepDetector;
 	
+	//WEKA Library variables
+	//Classifier myLeastSquares;
+	LinearRegression myLR;
+	Evaluation eval;
+	DataSource modelSource;
+	Instances modelData;
+	DataSource testSource;
+	Instances test;
+	
 	//FFT library variables
 	private final int FFT_SIZE = 512;
 	private DoubleFFT_1D fftlib = new DoubleFFT_1D(FFT_SIZE);
@@ -54,6 +66,7 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	private ArrayList<AccelData> accData;  // Accelerometer data array 
 	private ArrayList<AccelData> gyroData; // Gyroscope data array 
 	private ArrayList<AccelData> gravData; // Gravity data array 
+	private ArrayList<AccelData> calibrationData; // array for calibration Data
 	
 	// Sensor Energy Data
 	private double[] accelEnergy = new double[3];
@@ -110,6 +123,12 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	//two control buttons
 	private Button reset_btn, train_btn;
 	
+	public static FragmentManager fm;
+    public TrainDataDialog enterHeightDialog;
+    public static CalibrationDialog calibrateSteps;
+    public static boolean calibration_inProgress;
+    private double inputHeight;
+	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -119,8 +138,22 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		
 		sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
 		
+		fm = getSupportFragmentManager();
+        enterHeightDialog = new TrainDataDialog();
+        calibrateSteps = new CalibrationDialog();
+        calibration_inProgress = false;
+		
 		//create arraylist for accelerometer data
 		accData = new ArrayList<AccelData>();
+		calibrationData = new ArrayList<AccelData>();
+		
+		//Weka Libraries
+		try {
+			myLR = new LinearRegression();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		
 		//display data
 		x_stepFreq = (TextView)findViewById( R.id.x_freq_display);
@@ -153,6 +186,8 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		sensorManager.registerListener(this, sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY), (int) (SENSOR_DELAY*10000000)); 	 		 //convert from seconds to micro seconds
 		sensorManager.registerListener(this, sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD), (int) (SENSOR_DELAY*10000000));     //convert from seconds to micro seconds
 
+		trainModel();
+		
 		// Steup classes for x y and z step detection. these variables need to come from an initial calibration phase
 		xAxisStepDetector = new StepDetector(X_AXIS, 1, 100, 1, 0.1, 3);
 		yAxisStepDetector = new StepDetector(Y_AXIS, 1, 100, 1, 0.1, 3);
@@ -175,7 +210,7 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 			break;
 		
 		case R.id.train_btn:
-			showEditDialog();
+	        enterHeightDialog.show(fm, "fragment_enter_height");
 			break;
 			
 		default:
@@ -183,16 +218,22 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		
 		}
 	}
-	
-    private void showEditDialog() {
-        FragmentManager fm = getSupportFragmentManager();
-        TrainDataDialog enterHeightDialog = new TrainDataDialog();
-        enterHeightDialog.show(fm, "fragment_edit_name");
-    }
 
-    public void onFinishEditDialog(String inputText) {
-        Toast.makeText(this, "Hi, " + inputText, Toast.LENGTH_SHORT).show();
-    }
+		public void startCalibration(double inputHeight) {
+		
+			this.inputHeight = inputHeight;
+        Toast.makeText(this, "Calibration started, " + inputHeight, Toast.LENGTH_SHORT).show();
+        Log.d("MyApp","got here");		
+        calibrateSteps.show(fm, "fragment_calibrate_steps");
+        calibration_inProgress = true;
+        
+	}
+		
+		public void finishCalibration() {
+			calibration_inProgress = false;
+	        Toast.makeText(this, "Calibration finished", Toast.LENGTH_SHORT).show();
+	        extractCalibratedData();
+		}
 	
 	@Override
 	protected void onResume() {
@@ -217,8 +258,6 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		int type = sensor.getType();
 		switch(type){
 			case Sensor.TYPE_LINEAR_ACCELERATION:
-				//****************************building up
-				
 				//****************************Data accumulation******************************
 				long timestamp = System.currentTimeMillis();
 				accData.add(new AccelData(timestamp, event.values[X_AXIS], event.values[Y_AXIS], event.values[Z_AXIS]));
@@ -271,9 +310,27 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 								&& ENERGYTHRESHHIGH > accelEnergy[Y_AXIS] && accelEnergy[Y_AXIS] > ENERGYTHRESHLOW 
 								&& ENERGYTHRESHHIGH > accelEnergy[Z_AXIS] && accelEnergy[Z_AXIS] > ENERGYTHRESHLOW){                                   // && yStep_detect == MAXMIN);
 							step_value++;
+							//****************************Step Size Estimation*******************************
+							 calculateStepSize(); //using current step frequency and hieght parameter
+							//*******************************************************************************
 						}
 					}
 				}
+				//*******************************************************************************
+				
+				//****************************Distance Calculation*******************************
+				
+				//TODO Distance = Distance + stepsize if step detected
+				
+				//*******************************************************************************
+				
+				//****************************Store Calibration Data*****************************
+				if (calibration_inProgress)
+					calibrationData.add(new AccelData(timestamp, accData.get(accData.size()-1).getValue(X_AXIS), 
+							accData.get(accData.size()-1).getValue(Y_AXIS), 
+							accData.get(accData.size()-1).getValue(Z_AXIS)));
+				
+					
 				//*******************************************************************************
 				
 				//*****************************DISPLAY UPDATE SECTION****************************
@@ -478,6 +535,50 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		}
 		
 		return;
+	}
+	
+	private void extractCalibratedData(){
+		//TODO
+		/**
+		 * find top 10 peaks and bottom 10 troughs (x and z directions)
+		 * calculate 
+		 * 1) peak average value
+		 * 2) largest diff between one of the ten peaks and the computed average
+		 * 3) trough average value
+		 * 4) largest diff between one of the ten troughs and the computed average
+		 * 5) largest difference between a peak and a trough
+		 */
+		return;
+	}
+	
+	private void trainModel(){
+		//TODO apply least squares model using WEKA and inputHight Variable
+		
+		try {
+			modelSource = new DataSource("/mnt/sdcard/WEKA/ARFF_JAVA.arff");
+			modelData = modelSource.getDataSet();
+			modelData.setClassIndex(modelData.numAttributes() - 1);
+			
+			myLR.buildClassifier(modelData);
+			eval = new Evaluation(modelData);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	private void calculateStepSize(){
+		try {
+			testSource = new DataSource("/mnt/sdcard/WEKA/test.arff");
+			test = testSource.getDataSet();
+			test.setClassIndex(test.numAttributes() - 1);
+			eval.evaluateModel(myLR, test);
+			Log.d("MyApp",eval.predictions().toString());
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
 	}
 
 	/**

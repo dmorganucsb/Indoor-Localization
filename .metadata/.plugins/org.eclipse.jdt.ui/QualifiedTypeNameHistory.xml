@@ -3,7 +3,6 @@
 <fullyQualifiedTypeName name="org.apache.commons.logging.Log"/>
 <fullyQualifiedTypeName name="android.graphics.Color"/>
 <fullyQualifiedTypeName name="android.view.View.OnClickListener"/>
-<fullyQualifiedTypeName name="com.ece596.ucsb.localization.R.id"/>
 <fullyQualifiedTypeName name="android.support.v4.app.FragmentTransaction"/>
 <fullyQualifiedTypeName name="android.support.v4.app.DialogFragment"/>
 <fullyQualifiedTypeName name="android.app.FragmentTransaction"/>
@@ -12,5 +11,9 @@
 <fullyQualifiedTypeName name="android.support.v4.app.Fragment"/>
 <fullyQualifiedTypeName name="android.support.v4.app.FragmentManager"/>
 <fullyQualifiedTypeName name="java.lang.Math"/>
+<fullyQualifiedTypeName name="com.ece596.ucsb.localization.R.id"/>
 <fullyQualifiedTypeName name="android.util.Log"/>
+<fullyQualifiedTypeName name="weka.core.SerializationHelper"/>
+<fullyQualifiedTypeName name="weka.core.converters.ConverterUtils.DataSource"/>
+<fullyQualifiedTypeName name="weka.core.Instances"/>
 </qualifiedTypeNameHistroy>

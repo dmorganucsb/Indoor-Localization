@@ -22,5 +22,7 @@
     <string name="cancel_str">Cancel</string>
     <string name="feet_str">Feet</string>
     <string name="inches_str">Inches</string>
-    
+    <string name="calibrate_msg1">Please walk exactly 10 steps,</string>
+    <string name="calibrate_msg2">then stop and select Done</string>
+
 </resources>

@@ -33,7 +33,9 @@ public final class R {
         public static final int LinearLayout01=0x7f090000;
         public static final int LinearLayout02=0x7f09000c;
         public static final int LinearLayout201=0x7f090011;
-        public static final int action_settings=0x7f090020;
+        public static final int action_settings=0x7f090022;
+        public static final int calib_msg1=0x7f09001b;
+        public static final int calid_msg2=0x7f09001c;
         public static final int cb_step_length_display=0x7f090008;
         public static final int cb_step_num_display=0x7f090007;
         public static final int cb_theta_display=0x7f09000f;
@@ -45,11 +47,11 @@ public final class R {
         public static final int cb_z_freq_display=0x7f090013;
         public static final int checkBox7=0x7f090010;
         public static final int edit_name=0x7f090018;
-        public static final int enter_height_feet=0x7f09001c;
-        public static final int enter_height_inches=0x7f09001e;
-        public static final int enter_name=0x7f09001b;
-        public static final int feet_str=0x7f09001d;
-        public static final int inches_str=0x7f09001f;
+        public static final int enter_height_feet=0x7f09001e;
+        public static final int enter_height_inches=0x7f090020;
+        public static final int enter_name=0x7f09001d;
+        public static final int feet_str=0x7f09001f;
+        public static final int inches_str=0x7f090021;
         public static final int lbl_your_name=0x7f090019;
         public static final int reset_btn=0x7f090016;
         public static final int step_length_display=0x7f090004;
@@ -66,7 +68,8 @@ public final class R {
     }
     public static final class layout {
         public static final int activity_main=0x7f030000;
-        public static final int fragment_enter_height=0x7f030001;
+        public static final int calibration=0x7f030001;
+        public static final int fragment_enter_height=0x7f030002;
     }
     public static final class menu {
         public static final int main=0x7f080000;
@@ -76,6 +79,8 @@ public final class R {
         public static final int action_settings=0x7f060001;
         public static final int angle_str=0x7f06000a;
         public static final int app_name=0x7f060000;
+        public static final int calibrate_msg1=0x7f060015;
+        public static final int calibrate_msg2=0x7f060016;
         public static final int cancel_str=0x7f060012;
         public static final int distance_str=0x7f06000c;
         public static final int done_str=0x7f060011;
