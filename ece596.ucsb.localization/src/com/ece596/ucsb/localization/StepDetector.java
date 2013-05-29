@@ -28,7 +28,7 @@ public class StepDetector {
 	private final double DIFFAVGTHRESH; // should be determined from training
 										// phase (smallest diff between peak and
 										// trough)
-	private final int LOOKLENGTH = 20;
+	public final int LOOKLENGTH = 20;
 	private double TROUGHTIMEOUT = 0;
 	private int peakLookCounter;
 	private int troughLookCounter;

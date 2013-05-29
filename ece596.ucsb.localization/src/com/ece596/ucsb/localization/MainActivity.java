@@ -66,7 +66,9 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	private ArrayList<AccelData> accData;  // Accelerometer data array 
 	private ArrayList<AccelData> gyroData; // Gyroscope data array 
 	private ArrayList<AccelData> gravData; // Gravity data array 
-	private ArrayList<AccelData> calibrationData; // array for calibration Data
+	private ArrayList<AccelData> trainData;
+	private double[] trainPeakData; // array for calibration Data
+	private double[] trainTroughData; // array for calibration Data
 	
 	// Sensor Energy Data
 	private double[] accelEnergy = new double[3];
@@ -145,7 +147,9 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		
 		//create arraylist for accelerometer data
 		accData = new ArrayList<AccelData>();
-		calibrationData = new ArrayList<AccelData>();
+		trainData = new ArrayList<AccelData>();
+		trainPeakData = new double[20];
+		trainTroughData = new double[20];
 		
 		//Weka Libraries
 		try {
@@ -223,7 +227,7 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		
 			this.inputHeight = inputHeight;
         Toast.makeText(this, "Calibration started, " + inputHeight, Toast.LENGTH_SHORT).show();
-        Log.d("MyApp","got here");		
+        trainData.clear();        
         calibrateSteps.show(fm, "fragment_calibrate_steps");
         calibration_inProgress = true;
         
@@ -326,7 +330,7 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 				
 				//****************************Store Calibration Data*****************************
 				if (calibration_inProgress)
-					calibrationData.add(new AccelData(timestamp, accData.get(accData.size()-1).getValue(X_AXIS), 
+					trainData.add(new AccelData(timestamp, accData.get(accData.size()-1).getValue(X_AXIS), 
 							accData.get(accData.size()-1).getValue(Y_AXIS), 
 							accData.get(accData.size()-1).getValue(Z_AXIS)));
 				
@@ -548,6 +552,66 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		 * 4) largest diff between one of the ten troughs and the computed average
 		 * 5) largest difference between a peak and a trough
 		 */
+		findPeaks(trainData, Z_AXIS);
+		findTroughs(trainData, Z_AXIS);
+		return;
+	}
+
+	public void findPeaks(ArrayList<AccelData> data, int stepAxis) {
+		double Prev = 0;
+		double Next = 0;
+		int k = 0;
+		for (int i=0;i<data.size();i++){
+			int j = 1;
+			while (j < xAxisStepDetector.LOOKLENGTH && (i - j) >= 0 && (i + j) < data.size()) {
+				Prev = data.get(i - j).getValue(stepAxis);
+				Next = data.get(i + j).getValue(stepAxis);
+				if (Prev > data.get(i).getValue(stepAxis) || Next > data.get(i).getValue(stepAxis))
+					break; // not a true peak
+				j++;
+			}
+			if (j == xAxisStepDetector.LOOKLENGTH && k < 20) {
+				// found a peak
+				trainPeakData[k] = data.get(i).getValue(stepAxis); // store the supposed peak
+				k++;
+				//Log.d("MyApp", "found a peak");
+			}
+		}
+		Log.d("MyApp","peaks are " + trainPeakData[0] + " " + trainPeakData[1] + " " +
+				trainPeakData[2] + " " + trainPeakData[3] + " " +
+				trainPeakData[4] + " " + trainPeakData[5] + " " +
+				trainPeakData[6] + " " + trainPeakData[7] + " " +
+				trainPeakData[8] + " " + trainPeakData[9] + " " +
+				trainPeakData[10] + " " + trainPeakData[11]);
+		return;
+	}
+	
+	public void findTroughs(ArrayList<AccelData> data, int stepAxis) {
+		double Prev = 0;
+		double Next = 0;
+		int k = 0;
+		for (int i=0;i<data.size();i++){
+			int j = 1;
+			while (j < xAxisStepDetector.LOOKLENGTH && (i - j) >= 0 && (i + j) < data.size()) {
+				Prev = data.get(i - j).getValue(stepAxis);
+				Next = data.get(i + j).getValue(stepAxis);
+				if (Prev < data.get(i).getValue(stepAxis) || Next < data.get(i).getValue(stepAxis))
+					break; // not a true trough
+				j++;
+			}
+			if (j == xAxisStepDetector.LOOKLENGTH && k < 20) {
+				// found a trough
+				trainTroughData[k] = data.get(i).getValue(stepAxis); // store the supposed peak
+				k++;
+				//Log.d("MyApp", "found a trough");
+			}
+		}
+		Log.d("MyApp","troughs are " + trainTroughData[0] + " " + trainTroughData[1] + " " +
+				trainTroughData[2] + " " + trainTroughData[3] + " " +
+				trainTroughData[4] + " " + trainTroughData[5] + " " +
+				trainTroughData[6] + " " + trainTroughData[7] + " " +
+				trainTroughData[8] + " " + trainTroughData[9] + " " +
+				trainTroughData[10] + " " + trainTroughData[11]);
 		return;
 	}
 	

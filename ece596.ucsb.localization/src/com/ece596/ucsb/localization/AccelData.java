@@ -35,5 +35,23 @@ public class AccelData{
 		}
 		return returnValue;
 	}
+	
+	public double setValue(int axis, double value){
+		double returnValue = 0;
+		switch(axis){
+		case MainActivity.X_AXIS:
+			this.x = value;
+			break;
+		case MainActivity.Y_AXIS:
+			this.y = value;
+			break;
+		case MainActivity.Z_AXIS:
+			this.z = value;
+			break;
+		default:
+			break;
+		}
+		return returnValue;
+	}
 
 }
