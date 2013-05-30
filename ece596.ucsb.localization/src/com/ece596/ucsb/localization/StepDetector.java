@@ -19,22 +19,22 @@ public class StepDetector {
 	private double troughAvg;
 	private double waveformAvg; // find a way to use this to improve accuracy
 	private final int stepAxis;
-	private final double PEAKAVGTHRESH; // should be determined from training
+	private double PEAKAVGTHRESH; // should be determined from training
 										// phase (largest diff between peak and
 										// avg peak)
-	private final double TROUGHAVGTHRESH; // should be determined from training
+	private double TROUGHAVGTHRESH; // should be determined from training
 											// phase (largest diff between
 											// trough and avg trough)
-	private final double DIFFAVGTHRESH; // should be determined from training
+	private double DIFFAVGTHRESH; // should be determined from training
 										// phase (smallest diff between peak and
 										// trough)
 	public final int LOOKLENGTH = 20;
 	private double TROUGHTIMEOUT = 0;
 	private int peakLookCounter;
 	private int troughLookCounter;
+	private boolean Once;
 
-	public StepDetector(int AXIS, double initPeakAvg, double peakThresh,
-			double inittroughAvg, double troughThresh, double diffThresh) {
+	public StepDetector(int AXIS) {
 		this.dataCurr = 0;
 		this.dataCurrTS = 0;
 		this.peakValue = 0;
@@ -47,13 +47,24 @@ public class StepDetector {
 		this.troughLookCounter = 0;
 		this.peakVerified = false;
 		this.troughVerified = false;
+		
+		this.peakAvg = 1;
+		this.troughAvg = -1;
+		this.PEAKAVGTHRESH = 100;
+		this.TROUGHAVGTHRESH = 100;
+		this.DIFFAVGTHRESH = 200;
+		this.stepAxis = AXIS; // cannot be changed (final)
+		
+
+	}
+	
+	public void setThreshVariables(double initPeakAvg, double peakThresh,
+			double inittroughAvg, double troughThresh, double diffThresh){
 		this.peakAvg = initPeakAvg;
 		this.troughAvg = inittroughAvg;
 		this.PEAKAVGTHRESH = peakThresh;
 		this.TROUGHAVGTHRESH = troughThresh;
 		this.DIFFAVGTHRESH = diffThresh;
-		this.stepAxis = AXIS; // cannot be changed (final)
-
 	}
 
 	public void updateArray(ArrayList<AccelData> Data, double[] currFreq) {
@@ -73,6 +84,11 @@ public class StepDetector {
 		this.peakVerified = verifyPeak();
 
 		if (this.peakVerified) {
+			if (this.stepAxis == MainActivity.Y_AXIS && Once == true){
+				Once = false;
+				stepVerified = verifyStep();
+				return stepVerified;
+			}
 			findTrough();
 			troughTimeout();
 			this.troughVerified = verifyTrough();
@@ -171,6 +187,21 @@ public class StepDetector {
 	}
 
 	public boolean verifyStep() {
+		if (this.stepAxis == MainActivity.Y_AXIS){
+			if (this.peakValue > this.peakAvg) {
+				//Log.d("MyApp", "Step Verified! " + this.stepAxis);
+				peakValue = 0;
+				return true;
+			}
+			peakValue = 0;
+			if (this.troughValue < this.troughAvg) {
+				//Log.d("MyApp", "Step Verified! " + this.stepAxis);
+				troughValue = 0;
+				return true;
+			}
+			troughValue = 0;
+			return false;
+		}
 		if ((this.peakValue - this.troughValue) > this.DIFFAVGTHRESH) {
 			//Log.d("MyApp", "Step Verified! " + this.stepAxis);
 			return true;
@@ -195,6 +226,7 @@ public class StepDetector {
 		this.troughTS = 0;
 		this.peakVerified = false;
 		this.troughVerified = false;
+		this.Once = true;
 	}
 
 }

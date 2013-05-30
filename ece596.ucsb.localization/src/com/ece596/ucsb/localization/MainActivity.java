@@ -1,5 +1,9 @@
 package com.ece596.ucsb.localization;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -47,7 +51,8 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	Instances modelData;
 	DataSource testSource;
 	Instances test;
-	
+	String header = "@relation Step-Size\n\n@attribute Hieght real\n@attribute freq_times_height real\n@attribute Step_size real\n\n@data\n";
+
 	//FFT library variables
 	private final int FFT_SIZE = 512;
 	private DoubleFFT_1D fftlib = new DoubleFFT_1D(FFT_SIZE);
@@ -67,15 +72,24 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	private ArrayList<AccelData> gyroData; // Gyroscope data array 
 	private ArrayList<AccelData> gravData; // Gravity data array 
 	private ArrayList<AccelData> trainData;
-	private double[] trainPeakData; // array for calibration Data
-	private double[] trainTroughData; // array for calibration Data
+	private double[][] trainPeakData; // array for calibration Data
+	private double[][] trainTroughData; // array for calibration Data
+	private double[] peakAvg = new double[3];
+	private double[] troughAvg = new double[3];
+	private double[] peakThresh = new double[3];
+	private double[] troughThresh = new double[3];
+	private double[] p2pThresh = new double[3];
 	
 	// Sensor Energy Data
 	private double[] accelEnergy = new double[3];
 	private double[] gyroEnergy = new double[3];
-	private final static double ENERGYTHRESHLOW = 0.15;   //should eventually be set via calibration
-	private final static double ENERGYTHRESHHIGH = 2.35;  //should eventually be set via calibration
+	private static double[] energyThreshLow;
+	private static double[] energyThreshHigh;
 	private final static int NOACTIVITY = 4;
+	private final int ENERGYWINDOWSIZE = 50;
+	private double[] calibE = new double[3];
+	private double EHIGH = 2.35;
+	private double ELOW = 0.15;
 	
 	// filter data
 	private static int ORDER = 10;
@@ -95,8 +109,9 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	private TextView x_stepEnergy;  //display for X axis Energy Detection
 	private TextView y_stepEnergy;  //display for Y axis Energy Detection
 	private TextView z_stepEnergy;  //display for Z axis Energy Detection
-	private TextView step_length;   // display for step length
+	private TextView step_length_display;   // display for step length
 	private TextView thetaWRTN;     //display for angle
+	private TextView distance_display;
 	
 	//display checkboxes
 	private CheckBox cb_x_freq;
@@ -108,6 +123,7 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	private CheckBox cb_thetaWRTN;
 	private CheckBox cb_z_freq;
 	private CheckBox cb_z_energy;
+	private CheckBox cb_distance_display;
 	
 	
 	// values to compute orientation
@@ -120,6 +136,7 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
     // variables for pedometer
     private TextView step_num_display;
     private static int step_value = 0;
+    private static int fake_step_value = 0;
 	public final static double FREQTHRESH = 0.3;
 	
 	//two control buttons
@@ -130,6 +147,13 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
     public static CalibrationDialog calibrateSteps;
     public static boolean calibration_inProgress;
     private double inputHeight;
+    private static boolean timeout;
+    private int timeoutCount;
+    
+    private final double wiggleRoom = .2;
+    
+    private double step_length;
+    private double distance;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -144,12 +168,17 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
         enterHeightDialog = new TrainDataDialog();
         calibrateSteps = new CalibrationDialog();
         calibration_inProgress = false;
+        timeout = false;
+        timeoutCount = 0;
+        distance = 0;
 		
 		//create arraylist for accelerometer data
 		accData = new ArrayList<AccelData>();
 		trainData = new ArrayList<AccelData>();
-		trainPeakData = new double[20];
-		trainTroughData = new double[20];
+		trainPeakData = new double[3][20];
+		trainTroughData = new double[3][20];
+		energyThreshHigh = new double[3];
+		energyThreshLow = new double[3];
 		
 		//Weka Libraries
 		try {
@@ -168,7 +197,8 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		z_stepEnergy = (TextView)findViewById( R.id.z_energy_display);
 		thetaWRTN = (TextView)findViewById(R.id.theta_display);
 		step_num_display = (TextView)findViewById(R.id.step_num_display);
-		step_length = (TextView)findViewById(R.id.step_length_display);
+		step_length_display = (TextView)findViewById(R.id.step_length_display);
+		distance_display = (TextView)findViewById(R.id.distance_display);
 		
 		//checkboxes for display data
 		cb_x_freq = (CheckBox) findViewById(R.id.cb_x_freq_display);
@@ -180,23 +210,45 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		cb_thetaWRTN = (CheckBox) findViewById(R.id.cb_theta_display);
 		cb_z_freq = (CheckBox) findViewById(R.id.cb_z_freq_display);
 		cb_z_energy = (CheckBox) findViewById(R.id.cb_z_energy_display);
+		cb_distance_display = (CheckBox) findViewById(R.id.cb_distance_display);
 		
 		reset_btn = (Button) findViewById(R.id.reset_btn);
 		reset_btn.setOnClickListener(this);
 		train_btn = (Button) findViewById(R.id.train_btn);
 		train_btn.setOnClickListener(this);
 		
+		trainModel();
+		
+		xAxisStepDetector = new StepDetector(X_AXIS); // AXIS
+		yAxisStepDetector = new StepDetector(Y_AXIS);
+		zAxisStepDetector = new StepDetector(Z_AXIS);
+		
 		sensorManager.registerListener(this, sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION), (int) (SENSOR_DELAY*1000000)); //convert from seconds to micro seconds
 		sensorManager.registerListener(this, sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY), (int) (SENSOR_DELAY*10000000)); 	 		 //convert from seconds to micro seconds
 		sensorManager.registerListener(this, sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD), (int) (SENSOR_DELAY*10000000));     //convert from seconds to micro seconds
 
-		trainModel();
 		
+		this.myOnClick(null, R.id.train_btn);
+
+	}
+		
+	public void startPedometer() {
+		// Inflate the menu; this adds items to the action bar if it is present.
+		xAxisStepDetector.setThreshVariables(peakAvg[X_AXIS], peakThresh[X_AXIS]+wiggleRoom, troughAvg[X_AXIS], troughThresh[X_AXIS]+wiggleRoom, p2pThresh[X_AXIS]-wiggleRoom); // initPeakAvg peakThresh inittroughAvg troughThresh, diffThresh
+		yAxisStepDetector.setThreshVariables(peakAvg[Y_AXIS], peakThresh[Y_AXIS]+wiggleRoom, troughAvg[Y_AXIS], troughThresh[Y_AXIS]+wiggleRoom, p2pThresh[Y_AXIS]-wiggleRoom); // initPeakAvg peakThresh inittroughAvg troughThresh, diffThresh
+		zAxisStepDetector.setThreshVariables(peakAvg[Z_AXIS], peakThresh[Z_AXIS]+wiggleRoom, troughAvg[Z_AXIS], troughThresh[Z_AXIS]+wiggleRoom, p2pThresh[Z_AXIS]-wiggleRoom); // initPeakAvg peakThresh inittroughAvg troughThresh, diffThresh
+		
+		Log.d("MyApp", "X data = " + peakAvg[X_AXIS]+ " " +
+				peakThresh[X_AXIS] + " " +  troughAvg[X_AXIS] + " " + 
+				troughThresh[X_AXIS] + " " + p2pThresh[X_AXIS]);
+		Log.d("MyApp", "y data = " + peakAvg[Y_AXIS]+ " " + 
+				peakThresh[Y_AXIS] + " " +  troughAvg[Y_AXIS] + " " + 
+				troughThresh[Y_AXIS] + " " + p2pThresh[Y_AXIS]);
+		Log.d("MyApp", "z data = " + peakAvg[Z_AXIS]+ " " + 
+				peakThresh[Z_AXIS] + " " +  troughAvg[Z_AXIS] + " " + 
+				troughThresh[Z_AXIS] + " " + p2pThresh[Z_AXIS]);
 		// Steup classes for x y and z step detection. these variables need to come from an initial calibration phase
-		xAxisStepDetector = new StepDetector(X_AXIS, 1, 100, 1, 0.1, 3);
-		yAxisStepDetector = new StepDetector(Y_AXIS, 1, 100, 1, 0.1, 3);
-		zAxisStepDetector = new StepDetector(Z_AXIS, 1, 100, 1, 0.1, 3);
-		
+		return;
 	}
 
 	@Override
@@ -206,11 +258,25 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		return true;
 	}
 	
-	public void onClick(View v) {
-		switch (v.getId()) {
+	@Override
+	public void onClick(View arg0) {
+		myOnClick(arg0, 0);
+		
+	}
+	
+	public void myOnClick(View v, int Id) {
+		int switchValue;
+		
+		if (v == null)
+			switchValue = Id;
+		else
+			switchValue = v.getId();
+		
+		switch (switchValue) {
 		
 		case R.id.reset_btn:
 			step_value = 0;
+			distance = 0;
 			break;
 		
 		case R.id.train_btn:
@@ -226,17 +292,26 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		public void startCalibration(double inputHeight) {
 		
 			this.inputHeight = inputHeight;
-        Toast.makeText(this, "Calibration started, " + inputHeight, Toast.LENGTH_SHORT).show();
-        trainData.clear();        
-        calibrateSteps.show(fm, "fragment_calibrate_steps");
-        calibration_inProgress = true;
-        
-	}
+	        Toast.makeText(this, "Calibration started, " + inputHeight, Toast.LENGTH_SHORT).show();
+	        trainData.clear();        
+	        calibrateSteps.show(fm, "fragment_calibrate_steps");
+	        calibration_inProgress = true;
+	        energyThreshLow[X_AXIS] = 10;
+	        energyThreshLow[Y_AXIS] = 10;
+	        energyThreshLow[Z_AXIS] = 10;
+	        energyThreshHigh[X_AXIS] = 0;
+	        energyThreshHigh[Y_AXIS] = 0;
+	        energyThreshHigh[Z_AXIS] = 0;
+
+		}
 		
 		public void finishCalibration() {
 			calibration_inProgress = false;
 	        Toast.makeText(this, "Calibration finished", Toast.LENGTH_SHORT).show();
-	        extractCalibratedData();
+	        for (int i=0;i<3;i++)
+	        	extractCalibratedData(i);
+	        
+	        startPedometer();
 		}
 	
 	@Override
@@ -269,17 +344,33 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 				resizeData(type);
 				//***************************************************************************
 				
+				//****************************Store Calibration Data*****************************
+				if (calibration_inProgress){
+					trainData.add(new AccelData(timestamp, accData.get(accData.size()-1).getValue(X_AXIS), 
+							accData.get(accData.size()-1).getValue(Y_AXIS), 
+							accData.get(accData.size()-1).getValue(Z_AXIS)));
+					calibE = findMaxEnergy(trainData, type);
+					for (int i = 0;i<3;i++){
+						if (calibE[i] + wiggleRoom/2 > energyThreshHigh[i] + wiggleRoom/2)
+							energyThreshHigh[i] = calibE[i] + wiggleRoom/2;
+						if (calibE[i] != 0 && calibE[i] < energyThreshLow[i])
+							energyThreshLow[i] = calibE[i];
+					}
+					return;
+				}
+				//*******************************************************************************
+				
 				//*****************************Energy Section********************************
 				// get energy
 				int axisMaxE = 0;
-				accelEnergy = findMaxEnergy(type);
+				accelEnergy = findMaxEnergy(accData, type);
 				// find max energy axis
 				if (accelEnergy[X_AXIS] < accelEnergy[Y_AXIS] || accelEnergy[X_AXIS] < accelEnergy[Z_AXIS])
 					axisMaxE = (accelEnergy[Y_AXIS] > accelEnergy[Z_AXIS] ? Y_AXIS:Z_AXIS);
 				else
 					axisMaxE = X_AXIS;
 				
-				if (accelEnergy[axisMaxE] < ENERGYTHRESHLOW)
+				if (accelEnergy[axisMaxE] < energyThreshLow[axisMaxE])
 					axisMaxE = NOACTIVITY;
 				//****************************************************************************
 				
@@ -304,37 +395,40 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 					xAxisStepDetector.updateArray(accData, accelFFTfreq);
 					yAxisStepDetector.updateArray(accData, accelFFTfreq);
 					boolean xStep = xAxisStepDetector.FindStep();
-					//boolean yStep = yAxisStepDetector.FindStep();
+					boolean yStep = yAxisStepDetector.FindStep();
 					boolean zStep = zAxisStepDetector.FindStep();
-					if ( xStep || /*yStep ||*/ zStep){
+					if ( xStep || yStep || zStep){
+						fake_step_value++;
 						if (accelFFTfreq[X_AXIS] != 0 && accelFFTfreq[Y_AXIS] != 0 && accelFFTfreq[Z_AXIS] != 0
 								&& (accelFFTfreq[X_AXIS] - 2*accelFFTfreq[Y_AXIS]) < FREQTHRESH
 								&& accelFFTfreq[X_AXIS] - accelFFTfreq[Z_AXIS] < FREQTHRESH
-								&& ENERGYTHRESHHIGH > accelEnergy[X_AXIS] && accelEnergy[X_AXIS] > ENERGYTHRESHLOW
-								&& ENERGYTHRESHHIGH > accelEnergy[Y_AXIS] && accelEnergy[Y_AXIS] > ENERGYTHRESHLOW 
-								&& ENERGYTHRESHHIGH > accelEnergy[Z_AXIS] && accelEnergy[Z_AXIS] > ENERGYTHRESHLOW){                                   // && yStep_detect == MAXMIN);
+								&& /*energyThreshHigh[X_AXIS]*/ EHIGH > accelEnergy[X_AXIS] && accelEnergy[X_AXIS] > ELOW/*energyThreshLow[X_AXIS]*/
+								&& /*energyThreshHigh[Y_AXIS]*/ EHIGH > accelEnergy[Y_AXIS] && accelEnergy[Y_AXIS] > ELOW/*energyThreshLow[Y_AXIS]*/
+								&& /*energyThreshHigh[Z_AXIS]*/ EHIGH > accelEnergy[Z_AXIS] && accelEnergy[Z_AXIS] > ELOW/*energyThreshLow[Z_AXIS]*/
+								&& calibration_inProgress == false && timeout == false){                                   // && yStep_detect == MAXMIN);
 							step_value++;
+							timeout = true;
+							timeoutCount = 33;
 							//****************************Step Size Estimation*******************************
 							 calculateStepSize(); //using current step frequency and hieght parameter
+							 calculateDistance();
 							//*******************************************************************************
 						}
 					}
 				}
 				//*******************************************************************************
 				
+				//****************************Step detection timeout period**********************
+				if (timeoutCount != 0)
+					timeoutCount--;
+				else
+					timeout = false;
+				//*******************************************************************************
+				
 				//****************************Distance Calculation*******************************
 				
 				//TODO Distance = Distance + stepsize if step detected
 				
-				//*******************************************************************************
-				
-				//****************************Store Calibration Data*****************************
-				if (calibration_inProgress)
-					trainData.add(new AccelData(timestamp, accData.get(accData.size()-1).getValue(X_AXIS), 
-							accData.get(accData.size()-1).getValue(Y_AXIS), 
-							accData.get(accData.size()-1).getValue(Z_AXIS)));
-				
-					
 				//*******************************************************************************
 				
 				//*****************************DISPLAY UPDATE SECTION****************************
@@ -366,7 +460,7 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		}
 		
 	}
-		
+
 	/**
 	 * Function to maintain the size of the array lists
 	 * 
@@ -458,22 +552,24 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	 * @param context
 	 * @param attrs
 	 */
-	private double[] findMaxEnergy(int type){
-		
+	private double[] findMaxEnergy(ArrayList<AccelData> data, int type){
+		double result[] = {0,0,0};
 		double xEnergy = 0;
 		double yEnergy = 0;
 		double zEnergy = 0;
 		int size = 0;
-		double result[] = {0,0,0};
+		
+		if (data.size() < ENERGYWINDOWSIZE)
+			return result;
 		
 		switch(type){
 			case Sensor.TYPE_LINEAR_ACCELERATION:
-				for (int i=0;i<accData.size();i++){
-					xEnergy += Math.abs(accData.get(i).getValue(X_AXIS));
-					yEnergy += Math.abs(accData.get(i).getValue(Y_AXIS));
-					zEnergy += Math.abs(accData.get(i).getValue(Z_AXIS));
+				for (int i=data.size();i>data.size()-ENERGYWINDOWSIZE;i--){
+					xEnergy += Math.abs(data.get(i-1).getValue(X_AXIS));
+					yEnergy += Math.abs(data.get(i-1).getValue(Y_AXIS));
+					zEnergy += Math.abs(data.get(i-1).getValue(Z_AXIS));
 				}
-				size = accData.size();
+				size = ENERGYWINDOWSIZE;
 				break;
 			default:
 				break;
@@ -541,7 +637,7 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		return;
 	}
 	
-	private void extractCalibratedData(){
+	private void extractCalibratedData(int axis){
 		//TODO
 		/**
 		 * find top 10 peaks and bottom 10 troughs (x and z directions)
@@ -552,14 +648,22 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		 * 4) largest diff between one of the ten troughs and the computed average
 		 * 5) largest difference between a peak and a trough
 		 */
-		findPeaks(trainData, Z_AXIS);
-		findTroughs(trainData, Z_AXIS);
+		trainPeakData[axis] = findPeaks(trainData, axis);
+		trainTroughData[axis] = findTroughs(trainData, axis);
+		peakAvg[axis] = calculatePeakAverage(trainPeakData[axis]);
+		troughAvg[axis] = calculateTroughAverage(trainTroughData[axis]);
+		peakThresh[axis] = findPeakThresh(peakAvg[axis], trainPeakData[axis]);
+		troughThresh[axis] = findTroughThresh(troughAvg[axis], trainTroughData[axis]);
+		p2pThresh[axis] = findP2PThresh(trainPeakData[axis], trainTroughData[axis]);
+		
+		Log.d("MyApp","value is " + energyThreshLow[axis]);
 		return;
 	}
 
-	public void findPeaks(ArrayList<AccelData> data, int stepAxis) {
+	public double[] findPeaks(ArrayList<AccelData> data, int stepAxis) {
 		double Prev = 0;
 		double Next = 0;
+		double[] result = new double[60];
 		int k = 0;
 		for (int i=0;i<data.size();i++){
 			int j = 1;
@@ -570,25 +674,20 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 					break; // not a true peak
 				j++;
 			}
-			if (j == xAxisStepDetector.LOOKLENGTH && k < 20) {
+			if (j == xAxisStepDetector.LOOKLENGTH && k < 60) {
 				// found a peak
-				trainPeakData[k] = data.get(i).getValue(stepAxis); // store the supposed peak
+				result[k] = data.get(i).getValue(stepAxis); // store the supposed peak
 				k++;
-				//Log.d("MyApp", "found a peak");
 			}
 		}
-		Log.d("MyApp","peaks are " + trainPeakData[0] + " " + trainPeakData[1] + " " +
-				trainPeakData[2] + " " + trainPeakData[3] + " " +
-				trainPeakData[4] + " " + trainPeakData[5] + " " +
-				trainPeakData[6] + " " + trainPeakData[7] + " " +
-				trainPeakData[8] + " " + trainPeakData[9] + " " +
-				trainPeakData[10] + " " + trainPeakData[11]);
-		return;
+		return result;
 	}
 	
-	public void findTroughs(ArrayList<AccelData> data, int stepAxis) {
+	
+	public double[] findTroughs(ArrayList<AccelData> data, int stepAxis) {
 		double Prev = 0;
 		double Next = 0;
+		double[] result = new double[60];
 		int k = 0;
 		for (int i=0;i<data.size();i++){
 			int j = 1;
@@ -599,20 +698,73 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 					break; // not a true trough
 				j++;
 			}
-			if (j == xAxisStepDetector.LOOKLENGTH && k < 20) {
+			if (j == xAxisStepDetector.LOOKLENGTH && k < 60) {
 				// found a trough
-				trainTroughData[k] = data.get(i).getValue(stepAxis); // store the supposed peak
+				result[k] = data.get(i).getValue(stepAxis); // store the supposed peak
 				k++;
-				//Log.d("MyApp", "found a trough");
 			}
 		}
-		Log.d("MyApp","troughs are " + trainTroughData[0] + " " + trainTroughData[1] + " " +
-				trainTroughData[2] + " " + trainTroughData[3] + " " +
-				trainTroughData[4] + " " + trainTroughData[5] + " " +
-				trainTroughData[6] + " " + trainTroughData[7] + " " +
-				trainTroughData[8] + " " + trainTroughData[9] + " " +
-				trainTroughData[10] + " " + trainTroughData[11]);
-		return;
+		return result;
+	}
+	
+	public double calculatePeakAverage(double[] data) {
+		int i = 0;
+		int index = 0;
+		double avg = 0;
+		List<Double> b = Arrays.asList(ArrayUtils.toObject(data));
+		while (i<10 && i < data.length){
+			avg += Collections.max(b).doubleValue();
+			index = b.indexOf(Collections.max(b));
+			b.set(index, (double) 0);
+			i++;
+		}
+		return avg/i;
+	}
+	
+	public double calculateTroughAverage(double[] data) {
+		int i = 0;
+		int index = 0;
+		double avg = 0;
+		List<Double> b = Arrays.asList(ArrayUtils.toObject(data));
+		while (i<10 && i < data.length){
+			avg += Collections.min(b).doubleValue();
+			index = b.indexOf(Collections.min(b));
+			b.set(index, (double) 0);
+			i++;
+		}
+		return avg/i;
+	}
+	
+	public double findPeakThresh(double avg, double[] peaks){
+		double result = 0;
+		List<Double> b = Arrays.asList(ArrayUtils.toObject(peaks));
+		result = (Collections.max(b).doubleValue() - avg);
+		return result;
+	}
+	
+	public double findTroughThresh(double avg, double[] troughs){
+		double result = 0;
+		List<Double> b = Arrays.asList(ArrayUtils.toObject(troughs));
+		result = (Math.abs(Collections.min(b).doubleValue()) - Math.abs(avg));
+		return result;
+	}
+	
+	public double findP2PThresh(double[] peaks, double[] troughs){
+		double result = 0;
+		int i = 0;
+		int index = 0;
+		List<Double> b = Arrays.asList(ArrayUtils.toObject(peaks));
+		List<Double> c = Arrays.asList(ArrayUtils.toObject(troughs));
+		while (i<9 && i < (peaks.length - 1) && i < troughs.length - 1){
+			index = b.indexOf(Collections.max(b));
+			b.set(index, (double) 0);
+			index = c.indexOf(Collections.min(c));
+			c.set(index, (double) 0);
+			i++;
+		}
+		result = (Collections.max(b).doubleValue() - Collections.min(c).doubleValue());
+				
+		return result;
 	}
 	
 	private void trainModel(){
@@ -624,7 +776,6 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 			modelData.setClassIndex(modelData.numAttributes() - 1);
 			
 			myLR.buildClassifier(modelData);
-			eval = new Evaluation(modelData);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -633,16 +784,54 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	
 	private void calculateStepSize(){
 		try {
-			testSource = new DataSource("/mnt/sdcard/WEKA/test.arff");
+			
+			// build file
+			
+			StringBuilder Builder = new StringBuilder();
+
+			Builder.append(header);
+			Builder.append(Double.toString(inputHeight));
+			Builder.append(",");
+			Builder.append(Double.toString(accelFFTfreq[Z_AXIS]));
+			Builder.append(",");
+			Builder.append("?");
+			String text = Builder.toString();
+		    File predFile = new File("/mnt/sdcard/WEKA/pred.arff");
+	        try
+	        {
+	        	predFile.delete();
+	        	predFile.createNewFile();
+		        BufferedWriter buf = new BufferedWriter(new FileWriter(predFile, true)); 
+		        buf.append(text);
+		        buf.newLine();
+		        buf.close();
+	        } 
+	        catch (IOException e)
+	        {
+	           // TODO Auto-generated catch block
+	           e.printStackTrace();
+	        }
+			
+			testSource = new DataSource("/mnt/sdcard/WEKA/pred.arff");
 			test = testSource.getDataSet();
 			test.setClassIndex(test.numAttributes() - 1);
+			eval = new Evaluation(modelData);
 			eval.evaluateModel(myLR, test);
-			Log.d("MyApp",eval.predictions().toString());
+			//step_length = (Double) eval.predictions().get(1);
+			String step_length_str = eval.predictions().toString().substring(10, 16);
+			step_length = Double.parseDouble(step_length_str);
+			Log.d("MyApp","length is " + step_length_str);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
+	}
+	
+	private void calculateDistance() {
+		distance += step_length;
+		
+		return;
 	}
 
 	/**
@@ -685,9 +874,10 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 				break;
 		}
 		
-		//step_length.setText(Double.toString(highestPeak));
+		step_length_display.setText((cb_step_length.isChecked() ? Double.toString(step_length):"N.A."));
 		thetaWRTN.setText((cb_thetaWRTN.isChecked() ? Float.toString(rotValues[0]):"N.A."));
 		step_num_display.setText((cb_step_num.isChecked() ? Integer.toString(step_value):"N.A."));
+		distance_display.setText(cb_distance_display.isChecked() ? String.format("%.4f", distance):"N.A.");
 		
 		return;
 	}

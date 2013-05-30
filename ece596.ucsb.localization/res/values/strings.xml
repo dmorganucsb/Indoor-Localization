@@ -15,8 +15,8 @@
     <string name="sle_str">Step Length</string>
     <string name="distance_str">Distance</string>
     <string name="na_str">N.A.</string>
-    <string name="reset_str">Reset Steps</string>
-    <string name="train_str">Train Steps</string>
+    <string name="reset_str">Reset Distance and Steps</string>
+    <string name="train_str">Re-Train Steps</string>
     <string name="height_str">Enter your Height</string>
     <string name="done_str">Done</string>
     <string name="cancel_str">Cancel</string>
