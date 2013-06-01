@@ -1,4 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<session version="1.0">
-<refactoring comment="Copy element &apos;AccelData.java&apos; to &apos;ece596.ucsb.localization/src/com.ece596.ucsb.localization&apos;&#x0D;&#x0A;- Original project: &apos;Accelerometer Reading&apos;&#x0D;&#x0A;- Destination element: &apos;ece596.ucsb.localization/src/com.ece596.ucsb.localization&apos;&#x0D;&#x0A;- Original element: &apos;com.smartapps.accel.AccelData.java&apos;" description="Copy compilation unit" destination="=ece596.ucsb.localization/src&lt;com.ece596.ucsb.localization" element1="/src&lt;com.smartapps.accel{AccelData.java" files="0" flags="589830" folders="0" id="org.eclipse.jdt.ui.copy" policy="org.eclipse.jdt.ui.copyResources" stamp="1369403520640" units="1" version="1.0"/>
-</session>

@@ -1,4 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<session version="1.0">
-<refactoring accessors="true" comment="Delete element from project &apos;indoortrack&apos;&#x0D;&#x0A;- Original project: &apos;indoortrack&apos;&#x0D;&#x0A;- Original element: &apos;ucsb.ece596.indoortrack.TrainData.java&apos;" description="Delete element" element1="/src&lt;ucsb.ece596.indoortrack{TrainData.java" elements="1" flags="589830" id="org.eclipse.jdt.ui.delete" resources="0" stamp="1369618894934" subPackages="false" version="1.0"/>
-</session>

@@ -1,5 +1,0 @@
-INDEX VERSION 1.126+C:\Users\D-Money\Documents\School\ECE 596\Indoor-Localization\.metadata\.plugins\org.eclipse.jdt.core
-3628443461.index
-1792904151.index
-140403370.index
-2056276603.index
