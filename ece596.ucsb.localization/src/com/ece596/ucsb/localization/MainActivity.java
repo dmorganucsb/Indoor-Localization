@@ -72,8 +72,8 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	private ArrayList<AccelData> gyroData; // Gyroscope data array 
 	private ArrayList<AccelData> gravData; // Gravity data array 
 	private ArrayList<AccelData> trainData;
-	private double[][] trainPeakData; // array for calibration Data
-	private double[][] trainTroughData; // array for calibration Data
+	private double[][] trainPeakData = new double[3][20]; // array for calibration Data
+	private double[][] trainTroughData = new double[3][20]; // array for calibration Data
 	private double[] peakAvg = new double[3];
 	private double[] troughAvg = new double[3];
 	private double[] peakThresh = new double[3];
@@ -83,8 +83,8 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	// Sensor Energy Data
 	private double[] accelEnergy = new double[3];
 	private double[] gyroEnergy = new double[3];
-	private static double[] energyThreshLow;
-	private static double[] energyThreshHigh;
+	private static double[] energyThreshLow = new double[3];
+	private static double[] energyThreshHigh = new double[3];
 	private final static int NOACTIVITY = 4;
 	private final int ENERGYWINDOWSIZE = 50;
 	private double[] calibE = new double[3];
@@ -136,7 +136,6 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
     // variables for pedometer
     private TextView step_num_display;
     private static int step_value = 0;
-    private static int fake_step_value = 0;
 	public final static double FREQTHRESH = 0.3;
 	
 	//two control buttons
@@ -164,6 +163,7 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		
 		sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
 		
+		//initialization
 		fm = getSupportFragmentManager();
         enterHeightDialog = new TrainDataDialog();
         calibrateSteps = new CalibrationDialog();
@@ -175,11 +175,7 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		//create arraylist for accelerometer data
 		accData = new ArrayList<AccelData>();
 		trainData = new ArrayList<AccelData>();
-		trainPeakData = new double[3][20];
-		trainTroughData = new double[3][20];
-		energyThreshHigh = new double[3];
-		energyThreshLow = new double[3];
-		
+
 		//Weka Libraries
 		try {
 			myLR = new LinearRegression();
@@ -237,17 +233,7 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		xAxisStepDetector.setThreshVariables(peakAvg[X_AXIS], peakThresh[X_AXIS]+wiggleRoom, troughAvg[X_AXIS], troughThresh[X_AXIS]+wiggleRoom, p2pThresh[X_AXIS]-wiggleRoom); // initPeakAvg peakThresh inittroughAvg troughThresh, diffThresh
 		yAxisStepDetector.setThreshVariables(peakAvg[Y_AXIS], peakThresh[Y_AXIS]+wiggleRoom, troughAvg[Y_AXIS], troughThresh[Y_AXIS]+wiggleRoom, p2pThresh[Y_AXIS]-wiggleRoom); // initPeakAvg peakThresh inittroughAvg troughThresh, diffThresh
 		zAxisStepDetector.setThreshVariables(peakAvg[Z_AXIS], peakThresh[Z_AXIS]+wiggleRoom, troughAvg[Z_AXIS], troughThresh[Z_AXIS]+wiggleRoom, p2pThresh[Z_AXIS]-wiggleRoom); // initPeakAvg peakThresh inittroughAvg troughThresh, diffThresh
-		
-		Log.d("MyApp", "X data = " + peakAvg[X_AXIS]+ " " +
-				peakThresh[X_AXIS] + " " +  troughAvg[X_AXIS] + " " + 
-				troughThresh[X_AXIS] + " " + p2pThresh[X_AXIS]);
-		Log.d("MyApp", "y data = " + peakAvg[Y_AXIS]+ " " + 
-				peakThresh[Y_AXIS] + " " +  troughAvg[Y_AXIS] + " " + 
-				troughThresh[Y_AXIS] + " " + p2pThresh[Y_AXIS]);
-		Log.d("MyApp", "z data = " + peakAvg[Z_AXIS]+ " " + 
-				peakThresh[Z_AXIS] + " " +  troughAvg[Z_AXIS] + " " + 
-				troughThresh[Z_AXIS] + " " + p2pThresh[Z_AXIS]);
-		// Steup classes for x y and z step detection. these variables need to come from an initial calibration phase
+
 		return;
 	}
 
@@ -292,7 +278,7 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		public void startCalibration(double inputHeight) {
 		
 			this.inputHeight = inputHeight;
-	        Toast.makeText(this, "Calibration started, " + inputHeight, Toast.LENGTH_SHORT).show();
+	        Toast.makeText(this, "Calibration started", Toast.LENGTH_SHORT).show();
 	        trainData.clear();        
 	        calibrateSteps.show(fm, "fragment_calibrate_steps");
 	        calibration_inProgress = true;
@@ -338,15 +324,15 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		switch(type){
 			case Sensor.TYPE_LINEAR_ACCELERATION:
 				//****************************Data accumulation******************************
-				long timestamp = System.currentTimeMillis();
-				accData.add(new AccelData(timestamp, event.values[X_AXIS], event.values[Y_AXIS], event.values[Z_AXIS]));
+				long timestampAcc = System.currentTimeMillis();
+				accData.add(new AccelData(timestampAcc, event.values[X_AXIS], event.values[Y_AXIS], event.values[Z_AXIS]));
 				filter();  //10th order butterworth filter
 				resizeData(type);
 				//***************************************************************************
 				
 				//****************************Store Calibration Data*****************************
 				if (calibration_inProgress){
-					trainData.add(new AccelData(timestamp, accData.get(accData.size()-1).getValue(X_AXIS), 
+					trainData.add(new AccelData(timestampAcc, accData.get(accData.size()-1).getValue(X_AXIS), 
 							accData.get(accData.size()-1).getValue(Y_AXIS), 
 							accData.get(accData.size()-1).getValue(Z_AXIS)));
 					calibE = findMaxEnergy(trainData, type);
@@ -398,7 +384,6 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 					boolean yStep = yAxisStepDetector.FindStep();
 					boolean zStep = zAxisStepDetector.FindStep();
 					if ( xStep || yStep || zStep){
-						fake_step_value++;
 						if (accelFFTfreq[X_AXIS] != 0 && accelFFTfreq[Y_AXIS] != 0 && accelFFTfreq[Z_AXIS] != 0
 								&& (accelFFTfreq[X_AXIS] - 2*accelFFTfreq[Y_AXIS]) < FREQTHRESH
 								&& accelFFTfreq[X_AXIS] - accelFFTfreq[Z_AXIS] < FREQTHRESH
@@ -409,7 +394,7 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 							step_value++;
 							timeout = true;
 							timeoutCount = 33;
-							//****************************Step Size Estimation*******************************
+							//***********Step Size Estimation and distance calculation***********************
 							 calculateStepSize(); //using current step frequency and hieght parameter
 							 calculateDistance();
 							//*******************************************************************************
@@ -423,12 +408,6 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 					timeoutCount--;
 				else
 					timeout = false;
-				//*******************************************************************************
-				
-				//****************************Distance Calculation*******************************
-				
-				//TODO Distance = Distance + stepsize if step detected
-				
 				//*******************************************************************************
 				
 				//*****************************DISPLAY UPDATE SECTION****************************
@@ -446,7 +425,13 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 	            
 				break;
 			case Sensor.TYPE_GYROSCOPE:
-				// TODO can be used to help step detection?
+				//****************************Data accumulation******************************
+				long timestampGyro = System.currentTimeMillis();
+				accData.add(new AccelData(timestampGyro, event.values[X_AXIS], event.values[Y_AXIS], event.values[Z_AXIS]));
+				filter();  //10th order butterworth filter
+				resizeData(type);
+				//***************************************************************************
+
 				
 				break;
 			case Sensor.TYPE_MAGNETIC_FIELD:
@@ -682,7 +667,6 @@ public class MainActivity extends FragmentActivity  implements SensorEventListen
 		}
 		return result;
 	}
-	
 	
 	public double[] findTroughs(ArrayList<AccelData> data, int stepAxis) {
 		double Prev = 0;

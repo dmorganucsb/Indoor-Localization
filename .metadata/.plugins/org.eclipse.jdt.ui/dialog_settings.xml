@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <section name="Workbench">
-	<item value="C:\Users\D-Money\Documents\School\Spring 13\ECE 596\Indoor-Localization\ece596.ucsb.localization\libs" key="org.eclipse.jdt.ui.lastextjar"/>
+	<item value="C:\Users\D-Money\Documents\School\ECE 596\Indoor-Localization\ece596.ucsb.localization\libs" key="org.eclipse.jdt.ui.lastextjar"/>
 	<section name="org.eclipse.jdt.internal.ui.packageview.PackageExplorerPart">
 		<item value="true" key="group_libraries"/>
 		<item value="false" key="linkWithEditor"/>

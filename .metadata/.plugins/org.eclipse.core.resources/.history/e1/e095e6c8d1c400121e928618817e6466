@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <color name="xAxis">#f00</color>
-    <color name="yAxis">#0f0</color>
-    <color name="zAxis">#00f</color>
-</resources>
