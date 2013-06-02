@@ -154,9 +154,6 @@ public class WiFiDemo extends Activity implements OnClickListener {
 		}
 	}
 
-
-				
-
 	public void location(TextView textStatus){
 		JNI jni = new JNI();
 		String location=Integer.toString(jni.getCInt());
