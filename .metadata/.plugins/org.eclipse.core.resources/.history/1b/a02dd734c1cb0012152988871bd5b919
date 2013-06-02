@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:map="http://schemas.android.com/apk/res-auto"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:layout_weight="2"
+    android:orientation="vertical" >
+<fragment android:id="@+id/map"
+          android:layout_width="match_parent"
+          android:layout_height="match_parent"
+          android:name="com.google.android.gms.maps.MapFragment"/>
+
+</LinearLayout>
+    <LinearLayout
+        android:id="@+id/LinearLayout01"
+    	android:layout_width="fill_parent"
+    	android:layout_height="fill_parent"
+        android:layout_weight="1"
+        android:orientation="vertical" >
+</LinearLayout>
