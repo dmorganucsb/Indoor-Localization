@@ -6,4 +6,5 @@
     <string name="step_str">Step</string>
     <string name="step_length_str">Step Length</string>
     <string name="angleWRTN_str">Angle WRTN</string>
+    <string name="done_str">Done</string>
 </resources>
