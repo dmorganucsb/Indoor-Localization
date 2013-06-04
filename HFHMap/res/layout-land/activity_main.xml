@@ -20,7 +20,7 @@
         android:orientation="vertical" >
 
         <Button
-            android:id="@+id/button1"
+            android:id="@+id/step_len_btn"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_gravity="center_vertical"
@@ -42,7 +42,7 @@
             android:textSize="10sp" />
         
         <Button
-            android:id="@+id/button2"
+            android:id="@+id/angle_btn"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_gravity="center_vertical"
@@ -64,7 +64,7 @@
             android:textSize="10sp" />
         
         <Button
-            android:id="@+id/button3"
+            android:id="@+id/step_btn"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_gravity="center_vertical"
