@@ -4,7 +4,9 @@ import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
+import android.view.WindowManager;
 import android.widget.TextView;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -17,6 +19,8 @@ import com.google.android.gms.maps.model.LatLngBounds;
 
 
 public class MainActivity extends Activity {
+	private static final double RADIUSEARTH = 6367000;
+	
 	private static double step_length = 0.6;
 	private static double theta = 90;
 	private static int step_num = 5;
@@ -30,10 +34,14 @@ public class MainActivity extends Activity {
 	private GoogleMap mMap;	
 	private double ArrowLatLongSize = 0.000050;
 	
+	private double mapScale = 11.4;
+	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
+		
+		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		
 		step_length_view = (TextView)findViewById( R.id.textview1);
 		angleWRTN_view = (TextView)findViewById( R.id.textview2);
@@ -49,12 +57,12 @@ public class MainActivity extends Activity {
 		//var opt = { minZoom: 6, maxZoom: 9 };
 		//mMap.setOptions();
 		
-		Bitmap hfh = BitmapFactory.decodeResource(getResources(), R.drawable.hfh_map);
+		Bitmap hfh = BitmapFactory.decodeResource(getResources(), R.drawable.hfh_map_new);
 		Bitmap arrow = BitmapFactory.decodeResource(getResources(), R.drawable.arrow);
 		
 		//      [ Bot  (decrease to move south), Left  (decrease to move east) ]	
 		double arrowBot = 34.414590;
-		double arrowLeft = -119.845305;
+		double arrowLeft = -119.845395;
 		
 		    //      [ N/S  (decrease to move south), E/W  (decrease to move west) ]
 		LatLng hfh_sw = new LatLng(34.413000,-119.846000);
@@ -71,12 +79,28 @@ public class MainActivity extends Activity {
 		     .positionFromBounds(hfh_bounds)
 		     .transparency(0.5f));
 		
-		mMap.addGroundOverlay(new GroundOverlayOptions()   // overlay the map
+		mMap.addGroundOverlay(new GroundOverlayOptions()   // overlay the arrow
 	     .image(BitmapDescriptorFactory.fromBitmap(arrow))
 	     .positionFromBounds(arrow_bounds)
 	     .transparency(0.5f));
 		
 		updateDisplay();
+		
+		LatLontoMeter(34.414590, -119.84137, 34.414590, -119.84147);
+		
+		LatLng myLatLng_sw = CalculateDerivedPosition(arrow_sw, 9.144, 90);
+		LatLng myLatLng_ne = CalculateDerivedPosition(arrow_ne, 9.144, 90);
+		//Log.d("MyApp",Double.toString(myLatLng.latitude) + " " + Double.toString(myLatLng.longitude));
+		
+		arrow_bounds = new LatLngBounds(myLatLng_sw, myLatLng_ne);    // get a bounds
+		
+		//LatLng arrow_ne = new LatLng(arrowBot + ArrowLatLongSize,arrowLeft + ArrowLatLongSize);
+		//LatLngBounds arrow_bounds = new LatLngBounds(arrow_sw, arrow_ne);    // get a bounds
+		
+		mMap.addGroundOverlay(new GroundOverlayOptions()   // overlay the arrow
+	     .image(BitmapDescriptorFactory.fromBitmap(arrow))
+	     .positionFromBounds(arrow_bounds)
+	     .transparency(0.5f));
 	}
 
 	@Override
@@ -119,6 +143,47 @@ public class MainActivity extends Activity {
 		distance_view.setText(Integer.toString(step_num) + " Steps and " + Double.toString(total_distance) + " Meters");
 		
 		return;
+	}
+	
+	
+	/// <summary>
+	/// Calculates the end-point from a given source at a given range (meters) and bearing (degrees).
+	/// This methods uses simple geometry equations to calculate the end-point.
+	/// </summary>
+	/// <param name="source">Point of origin</param>
+	/// <param name="range">Range in meters</param>
+	/// <param name="bearing">Bearing in degrees</param>
+	/// <returns>End-point from the source given the desired range and bearing.</returns>
+	public LatLng CalculateDerivedPosition(LatLng source, double range, double angleWRTN)
+	{
+	    double latA = Math.toRadians(source.latitude);
+	    double lonA = Math.toRadians(source.longitude);
+	    double angularDistance = range * mapScale / RADIUSEARTH;
+	    double trueCourse = Math.toRadians(angleWRTN);
+
+	    double lat = Math.asin(
+	        Math.sin(latA) * Math.cos(angularDistance) + 
+	        Math.cos(latA) * Math.sin(angularDistance) * Math.cos(trueCourse));
+
+	    double dlon = Math.atan2(
+	        Math.sin(trueCourse) * Math.sin(angularDistance) * Math.cos(latA), 
+	        Math.cos(angularDistance) - Math.sin(latA) * Math.sin(lat));
+
+	    double lon = ((lonA + dlon + Math.PI) % (Math.PI*2)) - Math.PI;
+
+	    return new LatLng(Math.toDegrees(lat), Math.toDegrees(lon));
+	}
+	
+	
+	public void LatLontoMeter(double startLat, double startLon, double endLat, double endLon){
+		double dlon = (endLon - startLon);
+		double dlat = (endLat - startLat);
+		dlon = (dlon * Math.PI/180);
+		dlat = (dlat * Math.PI/180);
+	double a = Math.pow(Math.sin(dlat/2),2) + Math.cos(startLat*Math.PI/180)*Math.cos(endLat*Math.PI/180)*Math.pow(Math.sin(dlon/2),2);
+	double c = 2 * Math.atan2(Math.sqrt(a),  Math.sqrt(1-a));
+	double d = RADIUSEARTH * c;
+	Log.d("MyApp", Double.toString(d/mapScale));
 	}
 	
 
