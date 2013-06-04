@@ -6,6 +6,8 @@ import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
+import android.view.View;
+import android.view.View.OnClickListener;
 import android.view.WindowManager;
 import android.widget.TextView;
 
@@ -18,7 +20,7 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements OnClickListener {
 	private static final double RADIUSEARTH = 6367000;
 	
 	private static double step_length = 0.6;
@@ -86,17 +88,10 @@ public class MainActivity extends Activity {
 		
 		updateDisplay();
 		
-		LatLontoMeter(34.414590, -119.84137, 34.414590, -119.84147);
-		
 		LatLng myLatLng_sw = CalculateDerivedPosition(arrow_sw, 9.144, 90);
 		LatLng myLatLng_ne = CalculateDerivedPosition(arrow_ne, 9.144, 90);
-		//Log.d("MyApp",Double.toString(myLatLng.latitude) + " " + Double.toString(myLatLng.longitude));
-		
 		arrow_bounds = new LatLngBounds(myLatLng_sw, myLatLng_ne);    // get a bounds
-		
-		//LatLng arrow_ne = new LatLng(arrowBot + ArrowLatLongSize,arrowLeft + ArrowLatLongSize);
-		//LatLngBounds arrow_bounds = new LatLngBounds(arrow_sw, arrow_ne);    // get a bounds
-		
+
 		mMap.addGroundOverlay(new GroundOverlayOptions()   // overlay the arrow
 	     .image(BitmapDescriptorFactory.fromBitmap(arrow))
 	     .positionFromBounds(arrow_bounds)
@@ -108,6 +103,31 @@ public class MainActivity extends Activity {
 		// Inflate the menu; this adds items to the action bar if it is present.
 		getMenuInflater().inflate(R.menu.main, menu);
 		return true;
+	}
+	
+	@Override
+	public void onClick(View arg0) {
+		
+		int switchValue = arg0.getId();
+		switch (switchValue) {
+		
+		case R.id.step_len_btn:
+			Log.d("MyApp", "step_len");
+			break;
+		
+		case R.id.angle_btn:
+			Log.d("MyApp", "angle");
+			break;
+			
+		case R.id.step_btn:
+			Log.d("MyApp", "step");
+			break;
+			
+		default:
+			break;
+		
+		}
+		
 	}
 	
 	@Override
