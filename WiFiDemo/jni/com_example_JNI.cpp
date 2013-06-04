@@ -211,7 +211,8 @@ void read_online(vector<loc_info> &test){
 return;	
 }
 
-JNIEXPORT jint JNICALL Java_com_example_JNI_getCInt(JNIEnv *env, jobject thiz){
+JNIEXPORT jintArray JNICALL Java_com_example_JNI_getCInt(JNIEnv *env, jobject thiz){
+
 	//initialization//
 		vector< map<string, vector<double> > > matrix1;//initial offline database location(ap_name(rssi))
 		vector< vector<loc_info> > matrix2;//offline database location( class loc_info(rssi map, rssi_avg) )
@@ -297,21 +298,26 @@ JNIEXPORT jint JNICALL Java_com_example_JNI_getCInt(JNIEnv *env, jobject thiz){
 			if (match.size()==1){
 				iter4=match.begin();
 				//cout<<"the location is:"<<(*iter4).a+1<<endl;
-				return ((*iter4).a+1);
+				//return ((*iter4).a+1);
 
 			}
 
 		}
 		//cout<<endl;
 		sort(match.begin(),	match.end(),rank_pr);
-		if (match.size()==0) return -1;
+		//if (match.size()==0) return null;
 		//cout<<"The final compare result is:"<<endl;
+		jintArray result = env->NewIntArray(12);
+		jint fill[12];
+		int i=0;
 		for(iter4=match.begin();iter4!=match.end();iter4++){
+			fill[i]=((*iter4).a+1);
+			i++;
 			//cout<<"the location is: "<<(*iter4).a+1<<"  Pr is:"<<(*iter4).b<<endl;
-			return ((*iter4).a+1);
+			//return ((*iter4).a+1);
 		}
-
-
+		env->SetIntArrayRegion(result, 0, i, fill);
+		return result;
 
 }
 

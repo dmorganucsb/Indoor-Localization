@@ -141,7 +141,7 @@ public class WiFiDemo extends Activity implements OnClickListener {
 	public class TimeProcess implements Runnable{
 		public void run() {
 			wifi.startScan();
-			if (count>9){
+			if (count>2){
 				count=0;
 				mHandler.removeCallbacks(sjf);
 				textStatus.append("\nScan Done");
@@ -154,12 +154,22 @@ public class WiFiDemo extends Activity implements OnClickListener {
 		}
 	}
 
+
+				
+
 	public void location(TextView textStatus){
 		JNI jni = new JNI();
-		String location=Integer.toString(jni.getCInt());
-		//textStatus.append("\nYour location is:"+location);
-		Toast.makeText(this, "Your Location is:"+location,Toast.LENGTH_SHORT).show();
-				
+		if (jni.getCInt()==null) Toast.makeText(this, "Your Location is: -1",Toast.LENGTH_SHORT).show();
+		else{
+			textStatus.append("\nYour location maybe:\n");
+			int i=0;
+			while(jni.getCInt()[i]!=0){
+				String location=Integer.toString(jni.getCInt()[i]);
+				textStatus.append(location+" " );
+				i++;
+			}//textStatus.append("\nYour location is:"+location);
+			//Toast.makeText(this, "Your Location is:"+location,Toast.LENGTH_SHORT).show();
+		}
 	}
 	public void Reset(){
 		File logFile = new File("/mnt/sdcard/log.file");
