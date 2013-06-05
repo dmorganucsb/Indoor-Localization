@@ -73,7 +73,7 @@ public class WiFiDemo extends Activity implements OnClickListener {
 			Log.i("wificonfig", "[config] "+config.toString());
 		}*/
 
-		// Register Broadcast Receiver
+		// Register Broadcast Receivers
 		if (receiver == null)
 			receiver = new WiFiScanReceiver(this);
 
@@ -145,7 +145,7 @@ public class WiFiDemo extends Activity implements OnClickListener {
 				count=0;
 				mHandler.removeCallbacks(sjf);
 				textStatus.append("\nScan Done");
-				unregisterReceiver(receiver);
+				//unregisterReceiver(receiver);
 				return;
 				}
 			mHandler.postDelayed(this, 1000);
