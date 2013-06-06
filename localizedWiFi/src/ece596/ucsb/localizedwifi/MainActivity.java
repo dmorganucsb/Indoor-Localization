@@ -506,16 +506,17 @@ public class MainActivity extends FragmentActivity implements OnClickListener, S
 	public void location(StringBuilder textStatus){
 		JNI jni = new JNI();
 		if (jni.getCInt()==null) Toast.makeText(this, "Your Location is: -1",Toast.LENGTH_SHORT).show();
-		//else{
-		//	textStatus.append("\nYour location maybe:\n");
-		//	int i=0;
-		//	while(jni.getCInt()[i]!=0){
-		//		String location=Integer.toString(jni.getCInt()[i]);
-		//		textStatus.append(location+" " );
-		//		i++;
-		//	}//textStatus.append("\nYour location is:"+location);
-		//	//Toast.makeText(this, "Your Location is:"+location,Toast.LENGTH_SHORT).show();
-		//}
+		else{
+			textStatus.append("\nYour location maybe:\n");
+			int i=0;
+			while(jni.getCInt()[i]!=0){
+				String location=Integer.toString(jni.getCInt()[i]);
+				textStatus.append(location+" " );
+				i++;
+			}//textStatus.append("\nYour location is:"+location);
+			Log.d("myapp","Your Location is:"+textStatus);
+			Toast.makeText(this, "Your Location is:"+textStatus,Toast.LENGTH_SHORT).show();
+		}
 	}
 	public void Reset(){
 		File logFile = new File("/mnt/sdcard/log.file");
