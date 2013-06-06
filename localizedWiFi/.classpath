@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="src" path="gen"/>
+	<classpathentry kind="con" path="com.android.ide.eclipse.adt.ANDROID_FRAMEWORK"/>
+	<classpathentry exported="true" kind="con" path="com.android.ide.eclipse.adt.LIBRARIES"/>
+	<classpathentry kind="con" path="com.android.ide.eclipse.adt.DEPENDENCIES"/>
+	<classpathentry kind="lib" path="C:/Users/D-Money/Documents/School/Spring 13/ECE 596/Indoor-Localization/localizedWiFi/libs/commons-lang3-3.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/D-Money/Documents/School/Spring 13/ECE 596/Indoor-Localization/localizedWiFi/libs/jtransforms-2.4.jar"/>
+	<classpathentry kind="lib" path="C:/Users/D-Money/Documents/School/Spring 13/ECE 596/Indoor-Localization/localizedWiFi/libs/wekaSTRIPPED.jar"/>
+	<classpathentry kind="lib" path="C:/Users/D-Money/Documents/School/Spring 13/ECE 596/Indoor-Localization/localizedWiFi/libs/microlog4android-1.0.0.jar"/>
+	<classpathentry exported="true" kind="lib" path="C:/Users/D-Money/Documents/School/Spring 13/ECE 596/Indoor-Localization/google-play-services_lib/libs/google-play-services.jar"/>
+	<classpathentry kind="output" path="bin/classes"/>
+</classpath>
