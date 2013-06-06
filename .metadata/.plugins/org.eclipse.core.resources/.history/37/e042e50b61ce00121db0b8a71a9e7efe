@@ -1,0 +1,313 @@
+package ece596.ucsb.localizedwifi;
+
+import java.util.ArrayList;
+
+import weka.classifiers.Evaluation;
+import weka.classifiers.functions.LinearRegression;
+import weka.core.Instances;
+import weka.core.converters.ConverterUtils.DataSource;
+import android.content.Context;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.os.Bundle;
+import android.support.v4.app.FragmentActivity;
+import android.support.v4.app.FragmentManager;
+import android.util.Log;
+import android.view.Menu;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.ece596.ucsb.localization.AccelData;
+import com.ece596.ucsb.localization.CalibrationDialog;
+import com.ece596.ucsb.localization.StepDetector;
+import com.ece596.ucsb.localization.TrainDataDialog;
+import com.google.android.gms.maps.SupportMapFragment;
+
+import edu.emory.mathcs.jtransforms.fft.DoubleFFT_1D;
+
+public class MainActivity extends FragmentActivity implements OnClickListener, SensorEventListener {
+	
+	private SensorManager mSensorManager;
+	
+	private Sensor mMagnetic;
+	private Sensor mGravity;
+	private Sensor mSensor;
+
+	// Sensor Energy Data
+	private double[] accelEnergy = new double[3];
+	private double[] gyroEnergy = new double[3];
+	private static double[] energyThreshLow = new double[3];
+	private static double[] energyThreshHigh = new double[3];
+	private final static int NOACTIVITY = 4;
+	private final int ENERGYWINDOWSIZE = 50;
+	private double[] calibE = new double[3];
+	private double EHIGH = 2.35;
+	private double ELOW = 0.15;
+	
+	private MapUI MyMap;
+	
+	//consts
+	public final static int X_AXIS = 0;
+	public final static int Y_AXIS = 1;
+	public final static int Z_AXIS = 2;
+	
+    public static float[] mGrav = new float[3];
+    public static float[] mMag = new float[3];
+    public static float[] mValues;
+	
+	private Button reset_map_btn, calibrate_btn, scan_btn, location_btn, reset_wifi_btn;
+	
+	//Hard coded Room Number
+	private int ROOM_NUMBER = 1;
+	
+	//sensor Manager
+	private SensorManager sensorManager;
+	
+	// Step Detection Classes
+	StepDetector xAxisStepDetector;
+	StepDetector yAxisStepDetector;
+	StepDetector zAxisStepDetector;
+	
+	//WEKA Library variables
+	//Classifier myLeastSquares;
+	//LinearRegression myLR;
+	//Evaluation eval;
+	//DataSource modelSource;
+	//Instances modelData;
+	//DataSource testSource;
+	//Instances test;
+	//String header = "@relation Step-Size\n\n@attribute Hieght real\n@attribute freq_times_height real\n@attribute Step_size real\n\n@data\n";
+
+	//FFT library variables
+	private final int FFT_SIZE = 512;
+	//private DoubleFFT_1D fftlib = new DoubleFFT_1D(FFT_SIZE);
+	private static double[] accelFFTfreq = {0,0,0};
+	private static double[] prevAccelFFTfreq = {0,0,0};
+	private static double[] gyroFFTfreq = {0,0,0};
+	private static double[] prevGyroFFTfreq = {0,0,0};
+	
+	// Array size limitation for sensor data
+	private final int ARRAY_SIZE = 512;
+	
+	// data arrays
+	private ArrayList<AccelData> accData;  // Accelerometer data array 
+	private ArrayList<AccelData> gyroData; // Gyroscope data array 
+	private ArrayList<AccelData> gravData; // Gravity data array 
+	private ArrayList<AccelData> trainData;
+	private double[][] trainPeakData = new double[3][20]; // array for calibration Data
+	private double[][] trainTroughData = new double[3][20]; // array for calibration Data
+	private double[] peakAvg = new double[3];
+	private double[] troughAvg = new double[3];
+	private double[] peakThresh = new double[3];
+	private double[] troughThresh = new double[3];
+	private double[] p2pThresh = new double[3];
+	
+	// filter data
+	private static int ORDER = 10;
+	private static double[] A_coeffs = {1, -8.66133120135126, 33.8379111594403, -78.5155814397813, 119.815727607323, -125.635905892562, 91.6674737604170, -45.9506609307247, 15.1439586368786, -2.96290103992494, 0.261309426400923};
+	private static double[] B_coeffs = {8.40968636959052e-11, 8.40968636959052e-10, 3.78435886631574e-09, 1.00916236435086e-08, 1.76603413761401e-08, 2.11924096513681e-08, 1.76603413761401e-08, 1.00916236435086e-08, 3.78435886631574e-09, 8.40968636959052e-10, 8.40968636959052e-11};
+	
+	//value display refresh rate
+	private final int REFRESH_RATE 		= 2;                // rate of value/screen updates per second
+	private final double SENSOR_DELAY 	= .01;              // sensor delay in seconds 
+	private final double Fs		   		= 1/SENSOR_DELAY;   //sampling rate of sensor data in Hz
+	private int counter 		   		= 0;                //counter for refresh rate
+	
+	//display variable
+	private TextView x_stepFreq;    //display for x frequency
+	private TextView y_stepFreq;    //display for y frequency
+	private TextView z_stepFreq;    //display for z frequency
+	private TextView x_stepEnergy;  //display for X axis Energy Detection
+	private TextView y_stepEnergy;  //display for Y axis Energy Detection
+	private TextView z_stepEnergy;  //display for Z axis Energy Detection
+	private TextView step_length_display;   // display for step length
+	private TextView thetaWRTN;     //display for angle
+	private TextView distance_display;
+	
+	//display checkboxes
+	private CheckBox cb_x_freq;
+	private CheckBox cb_x_energy;
+	private CheckBox cb_step_num;
+	private CheckBox cb_step_length;
+	private CheckBox cb_y_freq;
+	private CheckBox cb_y_energy;
+	private CheckBox cb_thetaWRTN;
+	private CheckBox cb_z_freq;
+	private CheckBox cb_z_energy;
+	private CheckBox cb_distance_display;
+	
+    // variables for pedometer
+    private TextView step_num_display;
+    private static int step_value = 0;
+	public final static double FREQTHRESH = 0.3;
+	
+	//two control buttons
+	private Button reset_btn, train_btn;
+	
+	public static FragmentManager fm;
+    public TrainDataDialog enterHeightDialog;
+    public static CalibrationDialog calibrateSteps;
+    public static boolean calibration_inProgress;
+    private double inputHeight;
+    private static boolean timeout;
+    private int timeoutCount;
+    
+    private final double wiggleRoom = .2;
+    
+    private double step_length;
+    private double distance;
+	
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.activity_main);
+		
+		//getSupportFragmentManager().beginTransaction().add(R.layout.activity_main, (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map), "tag").commit();
+		
+		mSensorManager = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
+		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+		
+		//sensor definitions
+		mMagnetic = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+		mGravity = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
+        mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
+
+
+		
+		calibrate_btn = (Button) findViewById(R.id.calibrate_btn);
+		calibrate_btn.setOnClickListener(this);
+		reset_map_btn = (Button) findViewById(R.id.reset_map_btn);
+		reset_map_btn.setOnClickListener(this);
+		scan_btn = (Button) findViewById(R.id.scan_btn);
+		scan_btn.setOnClickListener(this);
+		location_btn = (Button) findViewById(R.id.location_btn);
+		location_btn.setOnClickListener(this);
+		reset_wifi_btn = (Button) findViewById(R.id.reset_wifi_btn);
+		reset_wifi_btn.setOnClickListener(this);
+		
+		MyMap = new MapUI(((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map)).getMap(), getBaseContext());
+		
+	}
+
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		// Inflate the menu; this adds items to the action bar if it is present.
+		getMenuInflater().inflate(R.menu.main, menu);
+		return true;
+	}
+	
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mSensorManager.registerListener(this, mSensor, (int) (.1*1000000));
+        //mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(this, mMagnetic, SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(this, mGravity, SensorManager.SENSOR_DELAY_NORMAL);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+    }
+    
+	@Override
+	public void onAccuracyChanged(Sensor sensor, int accuracy) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@SuppressWarnings("deprecation")
+	@Override
+	public void onSensorChanged(SensorEvent event) {
+		Sensor sensor = event.sensor;
+		int type = sensor.getType();
+		switch(type){
+		
+		case Sensor.TYPE_ORIENTATION:
+            mValues = event.values;
+            if (mGrav != null && mMag != null){
+            	MyMap.rotateArrow(CompassHelper.getThetaMatrix(mGrav, mMag));
+            }
+            break;
+		
+		case Sensor.TYPE_MAGNETIC_FIELD:
+			// TODO can be used to help step detection?
+			System.arraycopy(event.values, 0, mMag, 0, 3);
+			break;
+			
+		case Sensor.TYPE_GRAVITY:
+			// TODO can be used to help step detection?
+			System.arraycopy(event.values, 0, mGrav, 0, 3);
+			break;
+		
+		default:
+			break;
+		}
+		
+	}
+
+	@Override
+	public void onClick(View arg0) {
+		int switchValue = arg0.getId();
+		switch (switchValue) {
+	
+		case R.id.reset_map_btn:
+
+			break;
+		
+		case R.id.calibrate_btn:
+
+			break;
+		
+		case R.id.location_btn:
+
+			break;
+			
+		case R.id.scan_btn:
+
+			break;
+			
+		case R.id.reset_wifi_btn:
+
+			break;
+			
+		default:
+			break;
+		
+		}
+		
+	}
+	
+	public void startCalibration(double inputHeight) {
+		
+		this.inputHeight = inputHeight;
+        Toast.makeText(this, "Calibration started", Toast.LENGTH_SHORT).show();
+        trainData.clear();        
+        calibrateSteps.show(fm, "fragment_calibrate_steps");
+        calibration_inProgress = true;
+        energyThreshLow[X_AXIS] = 10;
+        energyThreshLow[Y_AXIS] = 10;
+        energyThreshLow[Z_AXIS] = 10;
+        energyThreshHigh[X_AXIS] = 0;
+        energyThreshHigh[Y_AXIS] = 0;
+        energyThreshHigh[Z_AXIS] = 0;
+
+	}
+	
+	public void finishCalibration() {
+		calibration_inProgress = false;
+        Toast.makeText(this, "Calibration finished", Toast.LENGTH_SHORT).show();
+        for (int i=0;i<3;i++)
+        	extractCalibratedData(i);
+        
+        startPedometer();
+	}
+
+}

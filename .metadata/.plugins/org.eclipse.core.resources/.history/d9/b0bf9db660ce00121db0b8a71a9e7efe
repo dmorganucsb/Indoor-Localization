@@ -1,0 +1,191 @@
+package ece596.ucsb.localizedwifi;
+
+import android.content.Context;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.os.Bundle;
+import android.support.v4.app.FragmentActivity;
+import android.util.Log;
+import android.view.Menu;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.Toast;
+
+import com.google.android.gms.maps.SupportMapFragment;
+
+public class MainActivity extends FragmentActivity implements OnClickListener, SensorEventListener {
+
+	private SensorManager mSensorManager;
+	
+	private Sensor mMagnetic;
+	private Sensor mGravity;
+	private Sensor mSensor;
+
+	
+	private MapUI MyMap;
+	
+	//consts
+	public final static int X_AXIS = 0;
+	public final static int Y_AXIS = 1;
+	public final static int Z_AXIS = 2;
+	
+    public static float[] mGrav = new float[3];
+    public static float[] mMag = new float[3];
+    public static float[] mValues;
+	
+	private Button reset_map_btn, calibrate_btn, scan_btn, location_btn, reset_wifi_btn;
+	
+	//Hard coded Room Number
+	private int ROOM_NUMBER = 1;
+	
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.activity_main);
+		
+		//getSupportFragmentManager().beginTransaction().add(R.layout.activity_main, (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map), "tag").commit();
+		
+		mSensorManager = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
+		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+		
+		//sensor definitions
+		mMagnetic = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+		mGravity = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
+        mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
+
+
+		
+		calibrate_btn = (Button) findViewById(R.id.calibrate_btn);
+		calibrate_btn.setOnClickListener(this);
+		reset_map_btn = (Button) findViewById(R.id.reset_map_btn);
+		reset_map_btn.setOnClickListener(this);
+		scan_btn = (Button) findViewById(R.id.scan_btn);
+		scan_btn.setOnClickListener(this);
+		location_btn = (Button) findViewById(R.id.location_btn);
+		location_btn.setOnClickListener(this);
+		reset_wifi_btn = (Button) findViewById(R.id.reset_wifi_btn);
+		reset_wifi_btn.setOnClickListener(this);
+		
+		MyMap = new MapUI(((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map)).getMap(), getBaseContext());
+		
+	}
+
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		// Inflate the menu; this adds items to the action bar if it is present.
+		getMenuInflater().inflate(R.menu.main, menu);
+		return true;
+	}
+	
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mSensorManager.registerListener(this, mSensor, (int) (.1*1000000));
+        //mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(this, mMagnetic, SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(this, mGravity, SensorManager.SENSOR_DELAY_NORMAL);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+    }
+    
+	@Override
+	public void onAccuracyChanged(Sensor sensor, int accuracy) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@SuppressWarnings("deprecation")
+	@Override
+	public void onSensorChanged(SensorEvent event) {
+		Sensor sensor = event.sensor;
+		int type = sensor.getType();
+		switch(type){
+		
+		case Sensor.TYPE_ORIENTATION:
+            mValues = event.values;
+            if (mGrav != null && mMag != null){
+            	MyMap.rotateArrow(CompassHelper.getThetaMatrix(mGrav, mMag));
+            }
+            break;
+		
+		case Sensor.TYPE_MAGNETIC_FIELD:
+			// TODO can be used to help step detection?
+			System.arraycopy(event.values, 0, mMag, 0, 3);
+			break;
+			
+		case Sensor.TYPE_GRAVITY:
+			// TODO can be used to help step detection?
+			System.arraycopy(event.values, 0, mGrav, 0, 3);
+			break;
+		
+		default:
+			break;
+		}
+		
+	}
+
+	@Override
+	public void onClick(View arg0) {
+		int switchValue = arg0.getId();
+		switch (switchValue) {
+	
+		case R.id.reset_map_btn:
+
+			break;
+		
+		case R.id.calibrate_btn:
+
+			break;
+		
+		case R.id.location_btn:
+
+			break;
+			
+		case R.id.scan_btn:
+
+			break;
+			
+		case R.id.reset_wifi_btn:
+
+			break;
+			
+		default:
+			break;
+		
+		}
+		
+	}
+	
+	public void startCalibration(double inputHeight) {
+		
+		this.inputHeight = inputHeight;
+        Toast.makeText(this, "Calibration started", Toast.LENGTH_SHORT).show();
+        trainData.clear();        
+        calibrateSteps.show(fm, "fragment_calibrate_steps");
+        calibration_inProgress = true;
+        energyThreshLow[X_AXIS] = 10;
+        energyThreshLow[Y_AXIS] = 10;
+        energyThreshLow[Z_AXIS] = 10;
+        energyThreshHigh[X_AXIS] = 0;
+        energyThreshHigh[Y_AXIS] = 0;
+        energyThreshHigh[Z_AXIS] = 0;
+
+	}
+	
+	public void finishCalibration() {
+		calibration_inProgress = false;
+        Toast.makeText(this, "Calibration finished", Toast.LENGTH_SHORT).show();
+        for (int i=0;i<3;i++)
+        	extractCalibratedData(i);
+        
+        startPedometer();
+	}
+
+}

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">HFHMap</string>
+    <string name="action_settings">Settings</string>
+    <string name="step_str">Step</string>
+    <string name="step_length">Step Length</string>
+    <string name="angleWRTN">Angle WRTN</string>
+</resources>
