@@ -1,6 +1,6 @@
-C:/Users/sjfsuperman/Desktop/tim/Android/WiFiDemo//obj/local/armeabi/objs/sun/com_example_JNI.o: \
- C:/Users/sjfsuperman/Desktop/tim/Android/WiFiDemo//jni/com_example_JNI.cpp \
- C:/Users/sjfsuperman/Desktop/tim/Android/WiFiDemo//jni/com_example_JNI.h \
+C:/Users/sjfsuperman/Desktop/localizedWiFi//obj/local/armeabi/objs/sun/ece596_ucsb_localizedwifi_JNI.o: \
+ C:/Users/sjfsuperman/Desktop/localizedWiFi//jni/ece596_ucsb_localizedwifi_JNI.cpp \
+ C:/Users/sjfsuperman/Desktop/localizedWiFi//jni/ece596_ucsb_localizedwifi_JNI.h \
  c:/Android/ndk/platforms/android-3/arch-arm/usr/include/jni.h \
  c:/Android/ndk/sources/cxx-stl/stlport/stlport/stdarg.h \
  c:/Android/ndk/sources/cxx-stl/stlport/stlport/stl/_cprolog.h \
@@ -16,6 +16,7 @@ C:/Users/sjfsuperman/Desktop/tim/Android/WiFiDemo//obj/local/armeabi/objs/sun/co
  c:/Android/ndk/sources/cxx-stl/stlport/stlport/stl/config/_native_headers.h \
  c:/Android/ndk/sources/cxx-stl/stlport/stlport/stl/_epilog.h \
  c:/Android/ndk/sources/cxx-stl/stlport/stlport/stl/_config_compat_post.h \
+ c:/Android/ndk/platforms/android-3/arch-arm/usr/include/android/log.h \
  c:/Android/ndk/sources/cxx-stl/stlport/stlport/iostream \
  c:/Android/ndk/sources/cxx-stl/stlport/stlport/stl/_prolog.h \
  c:/Android/ndk/sources/cxx-stl/stlport/stlport/stl/debug/_debug.h \
@@ -177,7 +178,7 @@ C:/Users/sjfsuperman/Desktop/tim/Android/WiFiDemo//obj/local/armeabi/objs/sun/co
  c:/Android/ndk/sources/cxx-stl/stlport/stlport/stl/_tempbuf.h \
  c:/Android/ndk/sources/cxx-stl/stlport/stlport/stl/_tempbuf.c
 
-C:/Users/sjfsuperman/Desktop/tim/Android/WiFiDemo//jni/com_example_JNI.h:
+C:/Users/sjfsuperman/Desktop/localizedWiFi//jni/ece596_ucsb_localizedwifi_JNI.h:
 
 c:/Android/ndk/platforms/android-3/arch-arm/usr/include/jni.h:
 
@@ -208,6 +209,8 @@ c:/Android/ndk/sources/cxx-stl/stlport/stlport/stl/config/_native_headers.h:
 c:/Android/ndk/sources/cxx-stl/stlport/stlport/stl/_epilog.h:
 
 c:/Android/ndk/sources/cxx-stl/stlport/stlport/stl/_config_compat_post.h:
+
+c:/Android/ndk/platforms/android-3/arch-arm/usr/include/android/log.h:
 
 c:/Android/ndk/sources/cxx-stl/stlport/stlport/iostream:
 

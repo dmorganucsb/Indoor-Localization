@@ -1,4 +1,5 @@
 #include "ece596_ucsb_localizedwifi_JNI.h"
+#include<android/log.h>
 #include<iostream>
 #include<vector>
 #include<map>
@@ -14,6 +15,8 @@
 #include <math.h>
 #include<algorithm>
 using namespace std;
+#define LOG_TAG "jni"
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 
 class loc_info{
 	public:
@@ -212,7 +215,7 @@ return;
 }
 
 JNIEXPORT jintArray JNICALL Java_ece596_ucsb_localizedwifi_JNI_getCInt(JNIEnv *env, jobject thiz){
-
+	LOGI("welcome");
 	//initialization//
 		vector< map<string, vector<double> > > matrix1;//initial offline database location(ap_name(rssi))
 		vector< vector<loc_info> > matrix2;//offline database location( class loc_info(rssi map, rssi_avg) )
@@ -226,8 +229,11 @@ JNIEXPORT jintArray JNICALL Java_ece596_ucsb_localizedwifi_JNI_getCInt(JNIEnv *e
 		vector< map<string, vector<double> > >::iterator iter;
 		//main function//
 		read_offline(matrix1);//read the offline data
+		LOGI("matrix1");
 		read(matrix1,matrix2);//construct the distriution structure
+		LOGI("matrix2");
 		read_online(input);//read the real-time data
+		LOGI("real-time data");
 		vector< pair_match> match;
 		vector< pair_match>::iterator iter4;
 		double in_rssi=0,pr=0,previous=0,threshold=0.1;

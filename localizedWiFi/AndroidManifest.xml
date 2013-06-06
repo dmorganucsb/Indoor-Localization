@@ -52,7 +52,7 @@
         <uses-library android:name="com.google.android.maps"/>
         <meta-data
     		android:name="com.google.android.maps.v2.API_KEY"
-    		android:value="AIzaSyDaRoe1mQkq5ao1y99GBJWs69nAjHm2Ntw"/>
+    		android:value="AIzaSyAUOSKgyHzxTclISSXV2s3ngR_TxqOW5AE"/>
     </application>
 
 </manifest>
