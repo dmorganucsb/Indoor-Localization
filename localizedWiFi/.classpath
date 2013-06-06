@@ -9,6 +9,5 @@
 	<classpathentry kind="lib" path="C:/Users/D-Money/Documents/School/Spring 13/ECE 596/Indoor-Localization/localizedWiFi/libs/jtransforms-2.4.jar"/>
 	<classpathentry kind="lib" path="C:/Users/D-Money/Documents/School/Spring 13/ECE 596/Indoor-Localization/localizedWiFi/libs/wekaSTRIPPED.jar"/>
 	<classpathentry kind="lib" path="C:/Users/D-Money/Documents/School/Spring 13/ECE 596/Indoor-Localization/localizedWiFi/libs/microlog4android-1.0.0.jar"/>
-	<classpathentry exported="true" kind="lib" path="C:/Users/D-Money/Documents/School/Spring 13/ECE 596/Indoor-Localization/google-play-services_lib/libs/google-play-services.jar"/>
 	<classpathentry kind="output" path="bin/classes"/>
 </classpath>
