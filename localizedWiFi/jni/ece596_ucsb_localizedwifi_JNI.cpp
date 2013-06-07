@@ -201,7 +201,7 @@ void read_online(vector<loc_info> &test){
 		//test[i].sjf=-test[i].sjf/max_element(test[i].rssi.begin(), test[i].rssi.end(), pred)->second;
 		test[i].rssi_avg=int(sum/count);
 		for(iter1=(test[i].rssi).begin();iter1!=(test[i].rssi).end();iter1++){
-			test[i].sjf+=((*iter1).first-test[i].rssi_avg)*((*iter1).first-test[i].rssi_avg);
+			test[i].sjf+=((*iter1).first-test[i].rssi_avg)*((*iter1).first-test[i].rssi_avg)*( (*iter1).second);
 		}
 		test[i].sjf/=(test[i].rssi).size();
 		//test[i].sjf=abs((max_element(test[i].rssi.begin(), test[i].rssi.end(), pred)->second)-(min_element(test[i].rssi.begin(), test[i].rssi.end(), pred)->second));
@@ -236,7 +236,7 @@ JNIEXPORT jintArray JNICALL Java_ece596_ucsb_localizedwifi_JNI_getCInt(JNIEnv *e
 		LOGI("real-time data");
 		vector< pair_match> match;
 		vector< pair_match>::iterator iter4;
-		double in_rssi=0,pr=0,previous=0,threshold=0.1;
+		double in_rssi=0,pr=0,previous=0,threshold=0.2;
 		int window=(matrix2.size()+1),count=0;;
 		string in_ap_name="";
 		iter1=input.begin();
