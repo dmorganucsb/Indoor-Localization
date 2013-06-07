@@ -266,7 +266,7 @@ JNIEXPORT jintArray JNICALL Java_ece596_ucsb_localizedwifi_JNI_getCInt(JNIEnv *e
 				}
 			}
 		}
-		sort(match.begin(),	match.end(),rank_pr);
+		sort(match.begin(),	match.end(),my);
 
 		for(iter4=match.begin();iter4!=match.end();iter4++){
 			if(count==window-1){
@@ -290,7 +290,7 @@ JNIEXPORT jintArray JNICALL Java_ece596_ucsb_localizedwifi_JNI_getCInt(JNIEnv *e
 					else (*iter4).b=0;
 				}
 			}
-			sort(match.begin(),	match.end(),rank_pr);
+			sort(match.begin(),	match.end(),my);
 			for(iter4=match.begin();iter4!=match.end();iter4++){
 				if(iter4!=match.begin()){
 					if(previous-(*iter4).b > threshold){
