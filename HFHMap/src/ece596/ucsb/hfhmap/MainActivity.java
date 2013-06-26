@@ -53,7 +53,7 @@ public class MainActivity extends FragmentActivity implements OnClickListener {
 	private LatLng arrow_sw;
 	private LatLng arrow_ne;
 	
-	private double mapScale = 11.4;
+	private double mapScale = 10.0;
 	
 	//control buttons
 	private Button step_len_btn, angle_btn, step_btn, reset;

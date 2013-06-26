@@ -1,0 +1,19 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" >
+
+    <CheckBoxPreference
+        android:defaultValue="false"
+        android:key="filter"
+        android:summary="@string/filter_summary"
+        android:title="@string/filter_title" />
+    <CheckBoxPreference
+        android:defaultValue="true"
+        android:key="hints"
+        android:summary="@string/hints_summary"
+        android:title="@string/hints_title" />
+<!--
+    <EditTextPreference
+        android:key="prefUsername"
+        android:summary="@string/pref_user_name_summary"
+        android:title="@string/pref_user_name" />
+-->
+</PreferenceScreen>

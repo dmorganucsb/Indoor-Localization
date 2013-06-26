@@ -25,6 +25,7 @@ import android.hardware.SensorManager;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.app.FragmentActivity;
@@ -76,9 +77,17 @@ public class MainActivity extends FragmentActivity implements OnClickListener, S
     public static float[] mGeom = new float[3];
     public static float[] mMag = new float[3];
     public static float[] rotValues = new float[3];
-    public static float[] mValues;
+    public static float[] mValues = new float[3];
+    public static boolean useCompass;
 	
 	private Button reset_map_btn, calibrate_btn, scan_btn, location_btn, reset_wifi_btn;
+	
+	private double[][] candidategrid = {{0.5,0.5},{1.5,0.5},{2.5,0.5},
+										{0.5,1.5},{1.5,1.5},{2.5,1.5},
+										{0.5,2.5},{1.5,2.5},{2.5,2.5},
+										{0.5,3.5},{1.5,3.5},{2.5,3.5}};
+	private int previousCandidate = 10;
+	public static double userDistance = 0;
 	
 	//Hard coded Room Number
 	private int ROOM_NUMBER = 1;
@@ -139,10 +148,16 @@ public class MainActivity extends FragmentActivity implements OnClickListener, S
 	//WiFi Demo
 	WifiManager wifi;
 	BroadcastReceiver receiver;
-	Handler mHandler;
+	final Handler mHandler = new Handler();
 	TimeProcess sjf=new TimeProcess();
 	public static int TPcount=0;
 	StringBuilder textStatus;
+	StringBuilder candidates;
+	public boolean LocationRunning = false;
+	private boolean JNIResult = false;
+	private  AsyncTask<String, Void, Void> Location_;
+	JNI jni;
+	public DemoDialog enterStepsDialog;
 	
 	//display variable
 	private TextView myDisplay;    //display for x frequency
@@ -200,7 +215,6 @@ public class MainActivity extends FragmentActivity implements OnClickListener, S
 		
 		//getSupportFragmentManager().beginTransaction().add(R.layout.activity_main, (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map), "tag").commit();
 		
-		
 		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		
 		fm = getSupportFragmentManager();
@@ -210,10 +224,12 @@ public class MainActivity extends FragmentActivity implements OnClickListener, S
 		//initialization
         enterHeightDialog = new TrainDataDialog();
         calibrateSteps = new CalibrationDialog();
+        enterStepsDialog = new DemoDialog();
         calibration_inProgress = false;
         timeout = false;
         timeoutCount = 0;
         distance = 0;
+        
 		
         myDisplay = (TextView)findViewById( R.id.myDisplay);
         
@@ -252,6 +268,8 @@ public class MainActivity extends FragmentActivity implements OnClickListener, S
 		
 		registerReceiver(receiver, new IntentFilter(
 				WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
+		
+		jni = new JNI();
 		
 		trainModel();
 		
@@ -309,6 +327,16 @@ public class MainActivity extends FragmentActivity implements OnClickListener, S
 	@Override
 	public void onAccuracyChanged(Sensor sensor, int accuracy) {
 		// TODO Auto-generated method stub
+		int type = sensor.getType();
+		switch(type){
+			case Sensor.TYPE_MAGNETIC_FIELD:
+			if (accuracy == SensorManager.SENSOR_STATUS_ACCURACY_HIGH || accuracy == SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM)
+				useCompass = true;
+			else
+				useCompass = false;
+			
+				
+		}
 		
 	}
 
@@ -440,7 +468,7 @@ public class MainActivity extends FragmentActivity implements OnClickListener, S
 		}
 		
 	}
-
+	
 	@Override
 	public void onClick(View arg0) {
 		int switchValue = arg0.getId();
@@ -449,6 +477,9 @@ public class MainActivity extends FragmentActivity implements OnClickListener, S
 		case R.id.reset_map_btn:
 			step_value = 0;
 			distance = 0;
+			userDistance = 0;
+			previousCandidate = 10;
+			MapUI.resetArrow();
 			break;
 		
 		case R.id.calibrate_btn:
@@ -456,15 +487,10 @@ public class MainActivity extends FragmentActivity implements OnClickListener, S
 			break;
 		
 		case R.id.location_btn:
-			location(textStatus);
-			break;
-			
-		case R.id.scan_btn:
-		//if(textRoomNum.getText().toString().trim().length() > 0){
+			Reset();
 			if(Integer.toString(ROOM_NUMBER).trim().length() > 0){
-			
+				
 				Log.d("MyApp", "onClick() wifi.startScan()");
-				mHandler = new Handler();
 		        mHandler.post(sjf);
 				
 		}
@@ -473,6 +499,17 @@ public class MainActivity extends FragmentActivity implements OnClickListener, S
 			Toast.makeText(this, "Please enter the room number",
 					Toast.LENGTH_LONG).show();
 		}
+			//Location.start();
+		      //if (Location_ == null){
+		    	  Location_ = new Location_(getBaseContext());
+		       // }
+		      Location_.execute();
+			break;
+			
+		case R.id.scan_btn:
+		//if(textRoomNum.getText().toString().trim().length() > 0){
+			
+			enterStepsDialog.show(fm,"enter_steps_dialog");
 			break;
 			
 		case R.id.reset_wifi_btn:
@@ -503,21 +540,65 @@ public class MainActivity extends FragmentActivity implements OnClickListener, S
 		}
 	}
 	
-	public void location(StringBuilder textStatus){
-		JNI jni = new JNI();
-		if (jni.getCInt()==null) Toast.makeText(this, "Your Location is: -1",Toast.LENGTH_SHORT).show();
-		else{
-			textStatus.append("\nYour location maybe:\n");
-			int i=0;
-			while(jni.getCInt()[i]!=0){
-				String location=Integer.toString(jni.getCInt()[i]);
-				textStatus.append(location+" " );
-				i++;
-			}//textStatus.append("\nYour location is:"+location);
-			Log.d("myapp","Your Location is:"+textStatus);
-			Toast.makeText(this, "Your Location is:"+textStatus,Toast.LENGTH_SHORT).show();
-		}
-	}
+	  public class Location_ extends AsyncTask<String, Void, Void> {
+
+		  private Context context;
+		  
+		  public Location_(Context context){
+			  this.context = context;
+		  }
+		  
+	      protected Void doInBackground(String... url) {
+	    	  Log.d("myapp","got here 17");
+	    	  
+	    	  if (LocationRunning == false){
+	    		//Looper.prepare();
+          		LocationRunning = true;
+          	    textStatus = new StringBuilder();
+          	    candidates = new StringBuilder();
+				int j;
+				int[] location=jni.getCInt();
+				if (location==null) 
+      				//JNIResult = false;
+					j = 0;
+      			else{
+      				textStatus.append("\nYour location maybe:\n");
+      				int i=0;
+      				while(location[i]!=0){
+      					String locationStr =Integer.toString(location[i]);
+      					textStatus.append(locationStr+" " );
+      					candidates.append(locationStr+" " );
+      					i++;
+      				}//textStatus.append("\nYour location is:"+location);
+      				Log.d("myapp","Your new Location is:"+textStatus);
+      				//JNIResult = true;
+      			}
+      			Log.d("myapp","done runnable");
+      			LocationRunning = false;;
+  				//selectCandidate(candidates.toString());
+            }
+	    	return null;
+	      }
+	      
+	      @Override
+	      protected void onCancelled() {
+
+	      }
+	      
+	      @Override
+	      protected void onPostExecute(Void result) {
+	            // TODO Auto-generated method stub
+	            super.onPostExecute(result);
+	            selectCandidate(candidates.toString());
+	    	  //if (JNIResult == false)
+	    	//	  Toast.makeText(context, "Your Location is: -1",Toast.LENGTH_SHORT).show();
+	    	 // else
+	  		//	  Toast.makeText(context, "Your Location is:"+textStatus,Toast.LENGTH_SHORT).show();
+			return;
+          }
+          
+  }
+	
 	public void Reset(){
 		File logFile = new File("/mnt/sdcard/log.file");
 		logFile.delete();
@@ -553,6 +634,44 @@ public class MainActivity extends FragmentActivity implements OnClickListener, S
 	        e.printStackTrace();
 	     }
 	  }
+	
+	public String selectCandidate(String candidates){
+		Toast.makeText(this, "Possible Candidates are " + candidates,
+				Toast.LENGTH_LONG).show();
+		String myCandidate = null;
+		String[] myCandidates = null;
+		myCandidates = candidates.split(" ");
+		
+		
+		Log.d("myapp","User distance is " +userDistance + " away");
+		for (int i=0;i<myCandidates.length;i++){
+			int candidateNumber = Integer.parseInt(myCandidates[i]);
+			double x_dist = candidategrid[(candidateNumber-1)][0] - candidategrid[previousCandidate-1][0];
+			double y_dist = candidategrid[(candidateNumber-1)][1] - candidategrid[previousCandidate-1][1];
+			double distance = Math.sqrt(Math.pow(x_dist, 2)+Math.pow(y_dist, 2));
+			Log.d("myapp","candidate " +candidateNumber +" is " + distance + " away");
+			if (Math.abs(distance - userDistance) < 0.2){
+				Log.d("myapp","candidate " +candidateNumber +" is possible candidate");
+				myCandidate = Integer.toString(candidateNumber);
+			}
+			else{
+				Log.d("myapp","candidate " +candidateNumber +" ruled out");
+				
+			}
+		}
+		if (myCandidate==null){
+			Toast.makeText(this, "no possible candidates",
+					Toast.LENGTH_LONG).show();
+		return "none";
+		}
+		else{
+			previousCandidate = Integer.parseInt(myCandidate);
+			Toast.makeText(this, "slected Candidate " + myCandidate,
+				Toast.LENGTH_LONG).show();
+		}
+			userDistance = 0;
+		return myCandidate;
+	}
 	
 	/**
 	 * 10th Order Butterworth Filter

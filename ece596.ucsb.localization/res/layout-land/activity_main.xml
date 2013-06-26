@@ -153,7 +153,7 @@
             android:textSize="20sp" />
 
         <TextView
-            android:id="@+id/y_energy_display"
+            android:id="@+id/avg_theta_display"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_gravity="center_vertical"
@@ -217,11 +217,11 @@
             android:layout_weight="2"
             android:gravity="center"
             android:padding="10dp"
-            android:text="@string/y_energy_str"
+            android:text="Avg Angle"
             android:textSize="13sp" />
         
          <CheckBox
-            android:id="@+id/cb_y_energy_display"
+            android:id="@+id/cb_avg_theta_display"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -332,6 +332,20 @@
         android:orientation="vertical" >
     
     <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" >
+
+        <Button
+            android:id="@+id/reset_btn"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="center_vertical"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:padding="10dp"
+            android:text="@string/reset_str"
+            android:textSize="20sp" />
+        <!--
         android:id="@+id/LinearLayout201"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -373,7 +387,7 @@
             android:layout_weight="1"
             android:checked="true"
             android:text="" />
-        
+        -->
     </LinearLayout>
     
 	</LinearLayout>

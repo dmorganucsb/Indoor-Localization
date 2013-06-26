@@ -5,8 +5,8 @@
 	<classpathentry kind="con" path="com.android.ide.eclipse.adt.ANDROID_FRAMEWORK"/>
 	<classpathentry exported="true" kind="con" path="com.android.ide.eclipse.adt.LIBRARIES"/>
 	<classpathentry kind="con" path="com.android.ide.eclipse.adt.DEPENDENCIES"/>
-	<classpathentry kind="lib" path="C:/Users/D-Money/Documents/School/Spring 13/ECE 596/Indoor-Localization/ece596.ucsb.localization/libs/commons-lang3-3.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/D-Money/Documents/School/Spring 13/ECE 596/Indoor-Localization/ece596.ucsb.localization/libs/jtransforms-2.4.jar"/>
-	<classpathentry kind="lib" path="C:/Users/D-Money/Documents/School/Spring 13/ECE 596/Indoor-Localization/ece596.ucsb.localization/libs/wekaSTRIPPED.jar"/>
+	<classpathentry kind="lib" path="C:/Users/D-Money/Documents/School/ECE 596/Indoor-Localization/ece596.ucsb.localization/libs/commons-lang3-3.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/D-Money/Documents/School/ECE 596/Indoor-Localization/ece596.ucsb.localization/libs/jtransforms-2.4.jar"/>
+	<classpathentry kind="lib" path="C:/Users/D-Money/Documents/School/ECE 596/Indoor-Localization/ece596.ucsb.localization/libs/wekaSTRIPPED.jar"/>
 	<classpathentry kind="output" path="bin/classes"/>
 </classpath>

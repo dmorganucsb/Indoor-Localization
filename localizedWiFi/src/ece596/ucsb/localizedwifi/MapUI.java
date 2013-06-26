@@ -18,25 +18,33 @@ import com.google.android.gms.maps.model.LatLngBounds;
 public class MapUI extends FragmentActivity{
 	
 	//Map Variables
-	private GoogleMap mMap;	
+	private static GoogleMap mMap;	
 	private Bitmap HFHFloorPlan;
-	private Bitmap arrow;
-	private LatLng arrow_sw;
-	private LatLng arrow_ne;
-	GroundOverlay arrowOverlay;
+	private static Bitmap arrow;
+	private static LatLng arrow_sw;
+	private static LatLng arrow_ne;
+	static GroundOverlay arrowOverlay;
 	
 	//consts
-	double initArrowBot = 34.414590;
-	double initArrowLeft = -119.845395;
-	private double ArrowLatLongSize = 0.000050;
+	//double initArrowBot = 34.413169;
+	//double initArrowLeft = -119.844672;
+	
+	static double initArrowBot = 34.413169;
+	static double initArrowLeft = -119.844672;
+	
+	double demoinitArrowBot = 34.414590;
+	double demoinitArrowLeft = -119.845395;
+	private static double ArrowLatLongSize = 0.000050;
+	public static float roomThetaOffset = 20; //in degrees
 	private static final LatLng HFH_COORDS = new LatLng(34.413812, -119.84137);
 	private static final double RADIUSEARTH = 6367000;
-	private double mapScale = 11.4;
+	private static double mapScale = 10.0;
+	private static Bitmap myArrow;
 
 	static Matrix matrix = new Matrix();
 
 	public MapUI(GoogleMap aMap, Context context){
-	
+		if (aMap != null){
 		this.mMap = aMap;
 		mMap.setMapType(GoogleMap.MAP_TYPE_NONE);
 		mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(HFH_COORDS, 16));
@@ -48,7 +56,12 @@ public class MapUI extends FragmentActivity{
 		arrow_ne = new LatLng(initArrowBot + ArrowLatLongSize,initArrowLeft + ArrowLatLongSize);
 		
 		setMap();
-		resetArrow();	
+		resetArrow();
+		
+		//starting point for demo
+		updateCursor(3.9878, 90, arrow);
+		updateCursor(1.6764, 0, arrow);
+		}
 	}
 	
 	public void setMap(){
@@ -86,23 +99,29 @@ public class MapUI extends FragmentActivity{
 	    }
 	}
 	
-	public void resetArrow(){
+	public static void resetArrow(){
 		if (arrowOverlay != null)
 			arrowOverlay.remove();
 		
 		LatLngBounds arrow_bounds = new LatLngBounds(new LatLng(initArrowBot,initArrowLeft), new LatLng(initArrowBot + ArrowLatLongSize,initArrowLeft + ArrowLatLongSize));   // get a bounds
 		
 		arrowOverlay = mMap.addGroundOverlay(new GroundOverlayOptions()   // overlay the arrow
-	     .image(BitmapDescriptorFactory.fromBitmap(arrow))
+		 .image(BitmapDescriptorFactory.fromBitmap(arrow))
 	     .positionFromBounds(arrow_bounds)
 	     .transparency(0.7f));
+		
+		//updateCursor(3.9878, 90, arrow);
+		//updateCursor(1.6764, 0, arrow);
 	}
 	
 	public void rotateArrow(Matrix rotation){
-		matrix.setRotate(MainActivity.mValues[0]+180); // anti-clockwise by 90 degrees    
-
-		Bitmap rotatedArrow = Bitmap.createBitmap(arrow , 0, 0, arrow.getWidth(), arrow.getHeight(), matrix /*rotation*/, true);
+		if (MainActivity.mValues != null && rotation != null){
+		matrix.setRotate(MainActivity.mValues[0]-90+roomThetaOffset); // anti-clockwise by 90 degrees  for landscape mode 
+		//matrix.setRotate(0);
+		Bitmap rotatedArrow = Bitmap.createBitmap(arrow , 0, 0, arrow.getWidth(), arrow.getHeight(), 
+				(MainActivity.useCompass == true) ? matrix:rotation, true);
 		updateCursor( 0, 0, rotatedArrow);
+		}
 	}
 	
 	public void updateDisplay(){
@@ -125,7 +144,13 @@ public class MapUI extends FragmentActivity{
 		return d;
 	}
 	
-	private void updateCursor(double distance, double angleWRTN, Bitmap cursor ){
+	public static void updatePosition(double distance){
+		updateCursor(distance, 
+				(MainActivity.useCompass == true)?MainActivity.mValues[0] + roomThetaOffset:Math.toDegrees((CompassHelper.rotValues[0]-Math.PI/2)) + roomThetaOffset,
+						arrow);
+	}
+	
+	private static void updateCursor(double distance, double angleWRTN, Bitmap cursor ){
 		arrowOverlay.remove();
 		if (distance != 0 || angleWRTN != 0){
 			arrow_sw = CalculateDerivedPosition(arrow_sw, distance, angleWRTN);  //update current location
@@ -148,7 +173,7 @@ public class MapUI extends FragmentActivity{
 	/// <param name="range">Range in meters</param>
 	/// <param name="bearing">Bearing in degrees</param>
 	/// <returns>End-point from the source given the desired range and bearing.</returns>
-	private LatLng CalculateDerivedPosition(LatLng source, double range, double angleWRTN)
+	private static LatLng CalculateDerivedPosition(LatLng source, double range, double angleWRTN)
 	{
 	    double latA = Math.toRadians(source.latitude);
 	    double lonA = Math.toRadians(source.longitude);

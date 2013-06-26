@@ -11,10 +11,10 @@ public final class R {
     public static final class attr {
     }
     public static final class color {
-        public static final int none=0x7f040003;
-        public static final int xAxis=0x7f040000;
-        public static final int yAxis=0x7f040001;
-        public static final int zAxis=0x7f040002;
+        public static final int none=0x7f050003;
+        public static final int xAxis=0x7f050000;
+        public static final int yAxis=0x7f050001;
+        public static final int zAxis=0x7f050002;
     }
     public static final class dimen {
         /**  Default screen margins, per the Android Design guidelines. 
@@ -23,49 +23,49 @@ public final class R {
          screen margins) for sw720dp devices (e.g. 10" tablets) in landscape here.
     
          */
-        public static final int activity_horizontal_margin=0x7f050000;
-        public static final int activity_vertical_margin=0x7f050001;
+        public static final int activity_horizontal_margin=0x7f060000;
+        public static final int activity_vertical_margin=0x7f060001;
     }
     public static final class drawable {
         public static final int ic_launcher=0x7f020000;
     }
     public static final class id {
-        public static final int LinearLayout01=0x7f090000;
-        public static final int LinearLayout02=0x7f09000d;
-        public static final int LinearLayout201=0x7f090012;
-        public static final int action_settings=0x7f090023;
-        public static final int calib_msg1=0x7f09001c;
-        public static final int calid_msg2=0x7f09001d;
-        public static final int cb_distance_display=0x7f090011;
-        public static final int cb_step_length_display=0x7f090008;
-        public static final int cb_step_num_display=0x7f090007;
-        public static final int cb_theta_display=0x7f090010;
-        public static final int cb_x_energy_display=0x7f090006;
-        public static final int cb_x_freq_display=0x7f090005;
-        public static final int cb_y_energy_display=0x7f09000f;
-        public static final int cb_y_freq_display=0x7f09000e;
-        public static final int cb_z_energy_display=0x7f090016;
-        public static final int cb_z_freq_display=0x7f090014;
-        public static final int distance_display=0x7f09000c;
-        public static final int edit_name=0x7f090019;
-        public static final int enter_height_feet=0x7f09001f;
-        public static final int enter_height_inches=0x7f090021;
-        public static final int enter_name=0x7f09001e;
-        public static final int feet_str=0x7f090020;
-        public static final int inches_str=0x7f090022;
-        public static final int lbl_your_name=0x7f09001a;
-        public static final int reset_btn=0x7f090017;
-        public static final int step_length_display=0x7f090004;
-        public static final int step_num_display=0x7f090003;
-        public static final int theta_display=0x7f09000b;
-        public static final int train_btn=0x7f090018;
-        public static final int txt_your_name=0x7f09001b;
-        public static final int x_energy_display=0x7f090002;
-        public static final int x_freq_display=0x7f090001;
-        public static final int y_energy_display=0x7f09000a;
-        public static final int y_freq_display=0x7f090009;
-        public static final int z_energy_display=0x7f090015;
-        public static final int z_freq_display=0x7f090013;
+        public static final int LinearLayout01=0x7f0a0000;
+        public static final int LinearLayout02=0x7f0a000d;
+        public static final int LinearLayout201=0x7f0a0012;
+        public static final int avg_theta_display=0x7f0a000a;
+        public static final int back_title=0x7f0a0022;
+        public static final int calib_msg1=0x7f0a001a;
+        public static final int calid_msg2=0x7f0a001b;
+        public static final int cb_avg_theta_display=0x7f0a000f;
+        public static final int cb_distance_display=0x7f0a0011;
+        public static final int cb_step_length_display=0x7f0a0008;
+        public static final int cb_step_num_display=0x7f0a0007;
+        public static final int cb_theta_display=0x7f0a0010;
+        public static final int cb_x_energy_display=0x7f0a0006;
+        public static final int cb_x_freq_display=0x7f0a0005;
+        public static final int cb_y_freq_display=0x7f0a000e;
+        public static final int cb_z_freq_display=0x7f0a0014;
+        public static final int distance_display=0x7f0a000c;
+        public static final int edit_name=0x7f0a0017;
+        public static final int enter_height_feet=0x7f0a001d;
+        public static final int enter_height_inches=0x7f0a001f;
+        public static final int enter_name=0x7f0a001c;
+        public static final int exit_title=0x7f0a0023;
+        public static final int feet_str=0x7f0a001e;
+        public static final int inches_str=0x7f0a0020;
+        public static final int lbl_your_name=0x7f0a0018;
+        public static final int reset_btn=0x7f0a0015;
+        public static final int settings_title=0x7f0a0021;
+        public static final int step_length_display=0x7f0a0004;
+        public static final int step_num_display=0x7f0a0003;
+        public static final int theta_display=0x7f0a000b;
+        public static final int train_btn=0x7f0a0016;
+        public static final int txt_your_name=0x7f0a0019;
+        public static final int x_energy_display=0x7f0a0002;
+        public static final int x_freq_display=0x7f0a0001;
+        public static final int y_freq_display=0x7f0a0009;
+        public static final int z_freq_display=0x7f0a0013;
     }
     public static final class layout {
         public static final int activity_main=0x7f030000;
@@ -73,32 +73,39 @@ public final class R {
         public static final int fragment_enter_height=0x7f030002;
     }
     public static final class menu {
-        public static final int main=0x7f080000;
+        public static final int main=0x7f090000;
     }
     public static final class string {
-        public static final int accuracy_str=0x7f060009;
-        public static final int action_settings=0x7f060001;
-        public static final int angle_str=0x7f06000a;
-        public static final int app_name=0x7f060000;
-        public static final int calibrate_msg1=0x7f060015;
-        public static final int calibrate_msg2=0x7f060016;
-        public static final int cancel_str=0x7f060012;
-        public static final int distance_str=0x7f06000c;
-        public static final int done_str=0x7f060011;
-        public static final int feet_str=0x7f060013;
-        public static final int height_str=0x7f060010;
-        public static final int inches_str=0x7f060014;
-        public static final int na_str=0x7f06000d;
-        public static final int reset_str=0x7f06000e;
-        public static final int sle_str=0x7f06000b;
-        public static final int steps_str=0x7f060005;
-        public static final int train_str=0x7f06000f;
-        public static final int x_energy_str=0x7f060006;
-        public static final int x_freq_str=0x7f060002;
-        public static final int y_energy_str=0x7f060007;
-        public static final int y_freq_str=0x7f060003;
-        public static final int z_energy_str=0x7f060008;
-        public static final int z_freq_str=0x7f060004;
+        public static final int accuracy_str=0x7f070009;
+        public static final int action_settings=0x7f070001;
+        public static final int angle_str=0x7f07000a;
+        public static final int app_name=0x7f070000;
+        public static final int back_title=0x7f070018;
+        public static final int calibrate_msg1=0x7f070015;
+        public static final int calibrate_msg2=0x7f070016;
+        public static final int cancel_str=0x7f070012;
+        public static final int distance_str=0x7f07000c;
+        public static final int done_str=0x7f070011;
+        public static final int exit_title=0x7f070017;
+        public static final int feet_str=0x7f070013;
+        public static final int filter_summary=0x7f07001a;
+        public static final int filter_title=0x7f07001d;
+        public static final int height_str=0x7f070010;
+        public static final int hints_summary=0x7f07001c;
+        public static final int hints_title=0x7f07001b;
+        public static final int inches_str=0x7f070014;
+        public static final int na_str=0x7f07000d;
+        public static final int reset_str=0x7f07000e;
+        public static final int settings_title=0x7f070019;
+        public static final int sle_str=0x7f07000b;
+        public static final int steps_str=0x7f070005;
+        public static final int train_str=0x7f07000f;
+        public static final int x_energy_str=0x7f070006;
+        public static final int x_freq_str=0x7f070002;
+        public static final int y_energy_str=0x7f070007;
+        public static final int y_freq_str=0x7f070003;
+        public static final int z_energy_str=0x7f070008;
+        public static final int z_freq_str=0x7f070004;
     }
     public static final class style {
         /** 
@@ -122,10 +129,13 @@ public final class R {
     
  API 14 theme customizations can go here. 
          */
-        public static final int AppBaseTheme=0x7f070000;
+        public static final int AppBaseTheme=0x7f080000;
         /**  Application theme. 
  All customizations that are NOT specific to a particular API-level can go here. 
          */
-        public static final int AppTheme=0x7f070001;
+        public static final int AppTheme=0x7f080001;
+    }
+    public static final class xml {
+        public static final int settings=0x7f040000;
     }
 }

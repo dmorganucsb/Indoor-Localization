@@ -8,7 +8,7 @@ public class CompassHelper {
 	// values to compute orientation
     private static float[] mInclin;
     private static float[] mRot = new float[16];
-    private static float[] rotValues = new float[3];
+    public static float[] rotValues = new float[3];
     static Matrix matrix = new Matrix();
 	
     
@@ -22,7 +22,7 @@ public class CompassHelper {
 				//	rotValues[0] = rotValues[0] + 360;
 				
 				//matrix.reset();
-				matrix.setRotate((float)Math.toDegrees(rotValues[0]));
+				matrix.setRotate((float)Math.toDegrees((rotValues[0]-Math.PI/2)) + MapUI.roomThetaOffset);
 				
 				return matrix;
 			}

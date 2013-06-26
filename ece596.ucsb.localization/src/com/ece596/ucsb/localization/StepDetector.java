@@ -2,8 +2,6 @@ package com.ece596.ucsb.localization;
 
 import java.util.ArrayList;
 
-import android.util.Log;
-
 public class StepDetector {
 	private ArrayList<AccelData> Data; // Accelerometer data array
 
@@ -13,11 +11,13 @@ public class StepDetector {
 	private long peakTS; // find a way to use this to improve accuracy (done?)
 	private boolean peakVerified;
 	private double troughValue;
-	private long troughTS; // find a way to use this to improve accuracy
+	@SuppressWarnings("unused")
+	private long troughTS; // TODO find a way to use this to improve accuracy
 	private boolean troughVerified;
 	private double peakAvg; // not final, has init value and constantly updated
 	private double troughAvg;
-	private double waveformAvg; // find a way to use this to improve accuracy
+	@SuppressWarnings("unused")
+	private double waveformAvg; // TODO find a way to use this to improve accuracy
 	private final int stepAxis;
 	private double PEAKAVGTHRESH; // should be determined from training
 										// phase (largest diff between peak and

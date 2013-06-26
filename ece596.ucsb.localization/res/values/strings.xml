@@ -24,5 +24,11 @@
     <string name="inches_str">Inches</string>
     <string name="calibrate_msg1">Please walk exactly 10 steps,</string>
     <string name="calibrate_msg2">then stop and select Done</string>
-
+	<string name="exit_title">Exit</string>
+	<string name="back_title">Back</string>
+	<string name="settings_title">Settings</string>
+	<string name="filter_summary">This will Enable/Disable the lowpass filtering of sensor data</string>
+	<string name="hints_title">Hints Title</string>
+	<string name="hints_summary">Hints Summary</string>
+	<string name="filter_title">Toggle Filter</string>
 </resources>

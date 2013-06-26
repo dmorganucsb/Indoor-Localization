@@ -42,16 +42,21 @@ public class MainActivity extends Activity implements SensorEventListener,
 	private TextView StepFreq;
 	private boolean started = false;
 	
-	private static int ORDER = 10;
-	private static double[] A_coeffs = {1, -8.66133120135126, 33.8379111594403, -78.5155814397813, 119.815727607323, -125.635905892562, 91.6674737604170, -45.9506609307247, 15.1439586368786, -2.96290103992494, 0.261309426400923};
-	private static double[] B_coeffs = {8.40968636959052e-11, 8.40968636959052e-10, 3.78435886631574e-09, 1.00916236435086e-08, 1.76603413761401e-08, 2.11924096513681e-08, 1.76603413761401e-08, 1.00916236435086e-08, 3.78435886631574e-09, 8.40968636959052e-10, 8.40968636959052e-11};
+	private static int ORDER = 2;
+	private static double[] B_coeffs = {1, -8.66133120135126, 33.8379111594403, -78.5155814397813, 119.815727607323, -125.635905892562, 91.6674737604170, -45.9506609307247, 15.1439586368786, -2.96290103992494, 0.261309426400923};
+	private static double[] A_coeffs = {8.40968636959052e-11, 8.40968636959052e-10, 3.78435886631574e-09, 1.00916236435086e-08, 1.76603413761401e-08, 2.11924096513681e-08, 1.76603413761401e-08, 1.00916236435086e-08, 3.78435886631574e-09, 8.40968636959052e-10, 8.40968636959052e-11};
+	
+	public final static int X_AXIS     = 0;
+	public final static int Y_AXIS     = 1;
+	public final static int Z_AXIS     = 2;
 	
 	private ArrayList<AccelData> sensorData;
 	private ArrayList<AccelData> linData;
-	private ArrayList<AccelData> gravData;
-	private ArrayList<AccelData> gyroData;
+	private ArrayList<AccelData> filtlinData;
+	//private ArrayList<AccelData> gravData;
+	//private ArrayList<AccelData> gyroData;
 	private ArrayList<AccelData> plotData;
-	private float[] linVals, gravVals, gyroVals;
+	private float[] linVals;//, gravVals, gyroVals;
 	DoubleFFT_1D fftlib = new DoubleFFT_1D(512);
 	
 	private LinearLayout layout;
@@ -67,8 +72,9 @@ public class MainActivity extends Activity implements SensorEventListener,
 		sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
 		sensorData = new ArrayList<AccelData>();
 		linData = new ArrayList<AccelData>();
-		gravData = new ArrayList<AccelData>();
-		gyroData = new ArrayList<AccelData>();
+		filtlinData = new ArrayList<AccelData>();
+		//gravData = new ArrayList<AccelData>();
+		//gyroData = new ArrayList<AccelData>();
 		plotData = new ArrayList<AccelData>();
 		toggle = 0;
 
@@ -97,20 +103,23 @@ public class MainActivity extends Activity implements SensorEventListener,
             	
             	switch(toggle){
             	case 0: //accel chart
-            		openChart(Sensor.TYPE_LINEAR_ACCELERATION, linData);
+            		openChart(Sensor.TYPE_LINEAR_ACCELERATION, linData, toggle);
             		break;
             	case 1:
-            		openChart(Sensor.TYPE_GRAVITY, gravData);
+            		//openChart(Sensor.TYPE_GRAVITY, gravData);
+            		filtlinData.clear();
+            		filter(linData, filtlinData);
+            		openChart(Sensor.TYPE_LINEAR_ACCELERATION, filtlinData, toggle);
             		break;
             	case 2:
-            		openChart(Sensor.TYPE_GYROSCOPE, gyroData);
+            		//openChart(Sensor.TYPE_GYROSCOPE, gyroData);
             		break;
             	default:
             		break;
             	}
             	
             	toggle = toggle + 1;
-            	if (toggle == 3)
+            	if (toggle == 2)
             		toggle = 0;
             }
         });
@@ -152,43 +161,14 @@ public class MainActivity extends Activity implements SensorEventListener,
 			  	            plotData.add(linData.get(i));
 			  	        }
 						if (toggle == 0)
-							openChart(type, plotData);
+							openChart(type, plotData, toggle);
+						if (toggle == 1){
+							filtlinData.clear();
+							 filter(plotData, filtlinData);
+							openChart(type, filtlinData, toggle);
+						}
 						break;
 		  			}
-					if (toggle == 0)
-						openChart(type, linData);
-					break;
-				case Sensor.TYPE_GRAVITY:
-					gravVals = lowPass( event.values.clone(), gravVals );
-					gravData.add(new AccelData(timestamp, gravVals[0], gravVals[1], gravVals[2]));
-		  			if (gravData.size() > 50){
-			  	        int size = gravData.size();
-			  	        for(int i=(size-51);i<size;i++)
-			  	        {
-			  	            plotData.add(gravData.get(i));
-			  	        }
-						if (toggle == 1)
-							openChart(type, plotData);
-						break;
-		  			}
-					if (toggle == 1)
-						openChart(type, gravData);
-					break;
-				case Sensor.TYPE_GYROSCOPE:
-					gyroVals = lowPass( event.values.clone(), gyroVals );
-					gyroData.add(new AccelData(timestamp, gyroVals[0], gyroVals[1], gyroVals[2]));
-		  			if (gyroData.size() > 50){
-			  	        int size = gyroData.size();
-			  	        for(int i=(size-51);i<size;i++)
-			  	        {
-			  	            plotData.add(gyroData.get(i));
-			  	        }
-						if (toggle == 2)
-							openChart(type, plotData);
-						break;
-		  			}
-					if (toggle == 2)
-						openChart(type, gyroData);
 					break;
 				default:
 					break;
@@ -201,173 +181,23 @@ public class MainActivity extends Activity implements SensorEventListener,
 	public void onClick(View v) {
 		switch (v.getId()) {
 		case R.id.btnStart:
-			btnStart.setEnabled(false);
-			btnStop.setEnabled(true);
-			btnUpload.setEnabled(false);
-			btnReset.setEnabled(false);
 			sensorData = new ArrayList<AccelData>();
 			// save prev data if available
 			started = true;
 			
 			Sensor accel = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
-			sensorManager.registerListener(this, accel, 10000);
+			sensorManager.registerListener(this, accel, 500000);
 			Sensor grav = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
-			sensorManager.registerListener(this, grav, 10000);
+			sensorManager.registerListener(this, grav, 500000);
 			Sensor gyro = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
-			sensorManager.registerListener(this, gyro, 10000);
+			sensorManager.registerListener(this, gyro, 500000);
 			
 			break;
 		case R.id.btnStop:
-			btnStart.setEnabled(true);
-			btnStop.setEnabled(false);
-			btnUpload.setEnabled(true);
-			btnReset.setEnabled(true);
 			started = false;
 			sensorManager.unregisterListener(this);
 
 			// show data in chart
-			break;
-		case R.id.btnReset:
-			plotData.clear();
-			sensorData.clear();
-			linData.clear();
-			gravData.clear();
-			gyroData.clear();
-			plotData.clear();
-			layout.removeAllViews();
-			StepFreq.setText("0");
-			break;
-		case R.id.btnUpload:
-			Log.d("MyApp","Upload pressed");
-			//Create a file to save the final result
-		    File logFile = new File("/mnt/sdcard/log.file");
-	        try
-	        {
-	           logFile.delete();
-	           logFile.createNewFile();
-	        } 
-	        catch (IOException e)
-	        {
-	           // TODO Auto-generated catch block
-	           e.printStackTrace();
-	        }
-	        StringBuilder Builder = new StringBuilder();
-		    double[] xValues;
-		    double[] yValues;
-		    double[] zValues;
-	        
-			//********************************Acceleromter Section***********************************************
-			//convert Arraylist<Double> to double[]
-		    xValues = new double[linData.size()];
-		    yValues = new double[linData.size()];
-		    zValues = new double[linData.size()];
-		    for (int i=0; i < xValues.length; i++)
-		    {
-		        xValues[i] = linData.get(i).getX();
-		        yValues[i] = linData.get(i).getY();
-		        zValues[i] = linData.get(i).getZ();
-		    }
-		    
-		    //convert double[] toString with comma seperators
-			Builder.append("Accelerometer X-Data = ");
-			for (double i : xValues) {
-			  Builder.append(i);
-			  Builder.append(",");
-			}
-			Builder.append("\n");
-			Builder.append("Accelerometer Y-Data = ");
-			for (double i : yValues) {
-				  Builder.append(i);
-				  Builder.append(",");
-				}
-			Builder.append("\n");
-			Builder.append("Accelerometer Z-Data = ");
-			for (double i : zValues) {
-				  Builder.append(i);
-				  Builder.append(",");
-				}
-			Builder.append("\n");
-			Builder.append("\n");
-			//*********************************Gyroscope Section*********************************************************
-			//convert Arraylist<Double> to double[]
-		    xValues = new double[gyroData.size()];
-		    yValues = new double[gyroData.size()];
-		    zValues = new double[gyroData.size()];
-		    for (int i=0; i < xValues.length; i++)
-		    {
-		        xValues[i] = gyroData.get(i).getX();
-		        yValues[i] = gyroData.get(i).getY();
-		        zValues[i] = gyroData.get(i).getZ();
-		    }
-		    
-		    //convert double[] toString with comma seperators
-			Builder.append("GyroScope X-Data = ");
-			for (double i : xValues) {
-			  Builder.append(i);
-			  Builder.append(",");
-			}
-			Builder.append("\n");
-			Builder.append("GyroScope Y-Data = ");
-			for (double i : yValues) {
-				  Builder.append(i);
-				  Builder.append(",");
-				}
-			Builder.append("\n");
-			Builder.append("GyroScope Z-Data = ");
-			for (double i : zValues) {
-				  Builder.append(i);
-				  Builder.append(",");
-				}
-			Builder.append("\n");
-			Builder.append("\n");
-			//*********************************Gravity Section*********************************************************
-			//convert Arraylist<Double> to double[]
-		    xValues = new double[gravData.size()];
-		    yValues = new double[gravData.size()];
-		    zValues = new double[gravData.size()];
-		    for (int i=0; i < xValues.length; i++)
-		    {
-		        xValues[i] = gravData.get(i).getX();
-		        yValues[i] = gravData.get(i).getY();
-		        zValues[i] = gravData.get(i).getZ();
-		    }
-		    
-		    //convert double[] toString with comma seperators
-			Builder.append("Gravity X-Data = ");
-			for (double i : xValues) {
-			  Builder.append(i);
-			  Builder.append(",");
-			}
-			Builder.append("\n");
-			Builder.append("Gravity Y-Data = ");
-			for (double i : yValues) {
-				  Builder.append(i);
-				  Builder.append(",");
-				}
-			Builder.append("\n");
-			Builder.append("Gravity Z-Data = ");
-			for (double i : zValues) {
-				  Builder.append(i);
-				  Builder.append(",");
-				}
-//**********************************************************End String Builder************************************
-			String text = Builder.toString();
-			
-		     try
-		     {
-		        //BufferedWriter for performance, true to set append to file flag
-		        BufferedWriter buf = new BufferedWriter(new FileWriter(logFile, true)); 
-		        buf.append(text);
-		        buf.newLine();
-		        buf.close();
-		        Toast toast = Toast.makeText(getApplicationContext(), "file saved", Toast.LENGTH_SHORT);
-		        toast.show();
-		     }
-		     catch (IOException e)
-		     {
-		        // TODO Auto-generated catch block
-		        e.printStackTrace();
-		     }
 			break;
 		default:
 			break;
@@ -375,7 +205,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 
 	}
 
-	private void openChart(int type, ArrayList<AccelData> _data) {
+	private void openChart(int type, ArrayList<AccelData> _data, int toggle) {
 		sensorData = _data;
 		if (sensorData != null || sensorData.size() > 0) {
 			
@@ -384,33 +214,13 @@ public class MainActivity extends Activity implements SensorEventListener,
 			long t = sensorData.get(0).getTimestamp();
 			XYMultipleSeriesDataset dataset = new XYMultipleSeriesDataset();
 
-			XYSeries xSeries = new XYSeries("X");
-			XYSeries ySeries = new XYSeries("Y");
 			XYSeries zSeries = new XYSeries("Z");
 
 			for (AccelData data : sensorData) {
-				xSeries.add(data.getTimestamp() - t, data.getX());
-				ySeries.add(data.getTimestamp() - t, data.getY());
-				zSeries.add(data.getTimestamp() - t, data.getZ());
+				zSeries.add(data.getTimestamp() - t, data.getValue(Z_AXIS));
 			}
 
-			dataset.addSeries(xSeries);
-			dataset.addSeries(ySeries);
 			dataset.addSeries(zSeries);
-
-			XYSeriesRenderer xRenderer = new XYSeriesRenderer();
-			xRenderer.setColor(Color.RED);
-			xRenderer.setPointStyle(PointStyle.CIRCLE);
-			xRenderer.setFillPoints(true);
-			xRenderer.setLineWidth(1);
-			xRenderer.setDisplayChartValues(false);
-
-			XYSeriesRenderer yRenderer = new XYSeriesRenderer();
-			yRenderer.setColor(Color.GREEN);
-			yRenderer.setPointStyle(PointStyle.CIRCLE);
-			yRenderer.setFillPoints(true);
-			yRenderer.setLineWidth(1);
-			yRenderer.setDisplayChartValues(false);
 
 			XYSeriesRenderer zRenderer = new XYSeriesRenderer();
 			zRenderer.setColor(Color.BLUE);
@@ -422,15 +232,12 @@ public class MainActivity extends Activity implements SensorEventListener,
 			XYMultipleSeriesRenderer multiRenderer = new XYMultipleSeriesRenderer();
 			multiRenderer.setXLabels(0);
 			multiRenderer.setLabelsColor(Color.RED);
-			switch(type){
-			case Sensor.TYPE_LINEAR_ACCELERATION:
-				multiRenderer.setChartTitle("t vs Linear Accel(x,y,z)");
+			switch(toggle){
+			case 0:
+				multiRenderer.setChartTitle("unfiltered");
 				break;
-			case Sensor.TYPE_GRAVITY:
-				multiRenderer.setChartTitle("t vs Gravity(x,y,z)");
-				break;
-			case Sensor.TYPE_GYROSCOPE:
-				multiRenderer.setChartTitle("t vs Gyroscope(x,y,z)");
+			case 1:
+				multiRenderer.setChartTitle("filtered");
 				break;
 			default:
 				multiRenderer.setChartTitle("Error");
@@ -446,9 +253,7 @@ public class MainActivity extends Activity implements SensorEventListener,
 			for (int i = 0; i < 12; i++) {
 				multiRenderer.addYTextLabel(i + 1, ""+i);
 			}
-
-			multiRenderer.addSeriesRenderer(xRenderer);
-			multiRenderer.addSeriesRenderer(yRenderer);
+			
 			multiRenderer.addSeriesRenderer(zRenderer);
 			
 			// Creating a Line Chart
@@ -457,60 +262,37 @@ public class MainActivity extends Activity implements SensorEventListener,
 
 			// Adding the Line Chart to the LinearLayout
 			layout.addView(mChart);
-			
-			double myFFT[];
-			myFFT = new double[512];
-						
-  			if (linData.size() > 512){
-	  	        int size = linData.size();
-	  	        for(int i=0;i<512;i++)
-	  	        {
-	  	            myFFT[i] = linData.get(i+size-512).getZ();
-	  	        }
-	  	        fftlib.realForward(myFFT);
-	  	        for (int i=0;i<512;i++){
-	  	        	myFFT[i] = Math.abs(myFFT[i]);
-	  	        }
-	  	        myFFT[0] = 0; myFFT[1] = 0; myFFT[2] = 0;//remove dc?
-	        	List<Double> b = Arrays.asList(ArrayUtils.toObject(myFFT));
-	            double freq = (double) b.indexOf(Collections.max(b)) * 50 / (2 * myFFT.length);
-	            StepFreq.setText(Double.toString(freq));
-  			}
-
 		}
+		else
+			Toast.makeText(this, "null data", Toast.LENGTH_LONG).show();
 	}
-	
-	static final float ALPHA = 0.15f;
 
-	protected float[] lowPass( float[] input, float[] output ) {
-	    if ( output == null ) return input;
-	     
-	    for ( int i=0; i<input.length; i++ ) {
-	        output[i] = output[i] + ALPHA * (input[i] - output[i]);
-	    }
-	    return output;
-	}
-	
-	public void filter(){
-		double[] x_orig = new double[plotData.size()];
-		double[] y_filt = new double[plotData.size()];
+	public static ArrayList<AccelData> filter(ArrayList<AccelData> accData, ArrayList<AccelData> filtData){ // implements a 10th order butterworth filter (coefficients created in MATLAB)
+		double[] x_orig = new double[accData.size()];
+		double[] y_filt = new double[accData.size()];
 		
-		for (int i=0;i<plotData.size();i++){
-			x_orig[i] = plotData.get(i).getZ();
-		}
+		// create return AccelData with same time stamps!
+
 		
-		int nSize = x_orig.length;
-		for (int n=0;n<nSize;n++){
-			for (int m=0;m<ORDER;m++){
-				if (n-m >= 0)
-					y_filt[n] += x_orig[n-m]*B_coeffs[m];
-				
-				if (n-m >=1 && m >=1)
-					y_filt[n] -= y_filt[n-m]*A_coeffs[m];
+		//for (MainActivity.Axes AXIS : MainActivity.Axes.values()){
+			for (int i=0;i<accData.size();i++)
+				x_orig[i] = accData.get(i).getValue(MainActivity.Z_AXIS);
+		
+			int nSize = accData.size();
+			for (int n=0;n<nSize;n++){
+				for (int m=0;m<ORDER;m++){
+					if (n-m >= 0)
+						y_filt[n] += x_orig[n-m]*B_coeffs[m];
+					
+					if (n-m >=1 && m >=1)
+						y_filt[n] -= y_filt[n-m]*A_coeffs[m];
+				}
+				y_filt[n] = y_filt[n]/A_coeffs[0];
 			}
-		}
-		
-		return;
+			for (int i=0;i<y_filt.length;i++)
+				filtData.add(new AccelData(accData.get(i).getTimestamp(), 0, 0, y_filt[i]));
+		//}
+		return filtData;
 	}
 
 }
