@@ -1,6 +1,6 @@
-C:/Users/sjfsuperman/Desktop/localizedWiFi//obj/local/armeabi/objs/sun/ece596_ucsb_localizedwifi_JNI.o: \
- C:/Users/sjfsuperman/Desktop/localizedWiFi//jni/ece596_ucsb_localizedwifi_JNI.cpp \
- C:/Users/sjfsuperman/Desktop/localizedWiFi//jni/ece596_ucsb_localizedwifi_JNI.h \
+C:/Users/sjfsuperman/Desktop/Indoor-Localization/localizedWiFi//obj/local/armeabi/objs/sun/ece596_ucsb_localizedwifi_JNI.o: \
+ C:/Users/sjfsuperman/Desktop/Indoor-Localization/localizedWiFi//jni/ece596_ucsb_localizedwifi_JNI.cpp \
+ C:/Users/sjfsuperman/Desktop/Indoor-Localization/localizedWiFi//jni/ece596_ucsb_localizedwifi_JNI.h \
  c:/Android/ndk/platforms/android-3/arch-arm/usr/include/jni.h \
  c:/Android/ndk/sources/cxx-stl/stlport/stlport/stdarg.h \
  c:/Android/ndk/sources/cxx-stl/stlport/stlport/stl/_cprolog.h \
@@ -178,7 +178,7 @@ C:/Users/sjfsuperman/Desktop/localizedWiFi//obj/local/armeabi/objs/sun/ece596_uc
  c:/Android/ndk/sources/cxx-stl/stlport/stlport/stl/_tempbuf.h \
  c:/Android/ndk/sources/cxx-stl/stlport/stlport/stl/_tempbuf.c
 
-C:/Users/sjfsuperman/Desktop/localizedWiFi//jni/ece596_ucsb_localizedwifi_JNI.h:
+C:/Users/sjfsuperman/Desktop/Indoor-Localization/localizedWiFi//jni/ece596_ucsb_localizedwifi_JNI.h:
 
 c:/Android/ndk/platforms/android-3/arch-arm/usr/include/jni.h:
 

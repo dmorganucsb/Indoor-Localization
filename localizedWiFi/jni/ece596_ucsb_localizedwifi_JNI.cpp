@@ -220,8 +220,8 @@ JNIEXPORT jintArray JNICALL Java_ece596_ucsb_localizedwifi_JNI_getCInt(JNIEnv *e
 		vector< map<string, vector<double> > > matrix1;//initial offline database location(ap_name(rssi))
 		vector< vector<loc_info> > matrix2;//offline database location( class loc_info(rssi map, rssi_avg) )
 		vector<loc_info> input;//real data
-		matrix1.resize(12);
-		matrix2.resize(12);
+		matrix1.resize(30);
+		matrix2.resize(30);
 
 		vector<loc_info>::iterator iter1;//for input
 		vector<loc_info>::iterator iter2;//for database
@@ -237,7 +237,7 @@ JNIEXPORT jintArray JNICALL Java_ece596_ucsb_localizedwifi_JNI_getCInt(JNIEnv *e
 		vector< pair_match> match;
 		vector< pair_match>::iterator iter4;
 		double in_rssi=0,pr=0,previous=0,threshold=0.2;
-		int window=(matrix2.size()+1),count=0;;
+		int window=(matrix2.size()+1)/3,count=0;;
 		string in_ap_name="";
 		iter1=input.begin();
 		in_rssi=(*iter1).rssi_avg;
@@ -312,10 +312,22 @@ JNIEXPORT jintArray JNICALL Java_ece596_ucsb_localizedwifi_JNI_getCInt(JNIEnv *e
 		}
 		//cout<<endl;
 		sort(match.begin(),	match.end(),rank_pr);
+		int sjf=0;//sjf is the number of top candidate you want
+		if (match.size()!=1){
+			sort(match.begin(),	match.end(),rank_pr);
+			for(iter4=match.begin();iter4!=match.end();iter4++){
+				if(sjf==5){
+					match.erase(iter4,match.end());
+					break;
+				}
+				sjf++;
+			}
+		}
+		sjf=0;
 		//if (match.size()==0) return null;
 		//cout<<"The final compare result is:"<<endl;
-		jintArray result = env->NewIntArray(12);
-		jint fill[12];
+		jintArray result = env->NewIntArray(5);
+		jint fill[5];
 		int i=0;
 		for(iter4=match.begin();iter4!=match.end();iter4++){
 			fill[i]=((*iter4).a+1);
