@@ -7,14 +7,14 @@ public class AccelData{
 	private double x;
 	private double y;
 	private double z;
-	
+
 	public AccelData(long timestamp, double x, double y, double z) {
 		this.timestamp = timestamp;
 		this.x = x;
 		this.y = y;
 		this.z = z;
 	}
-	
+
 	public long getTimestamp() {
 		return timestamp;
 	}
@@ -36,7 +36,7 @@ public class AccelData{
 		}
 		return returnValue;
 	}
-	
+
 	public double setValue(int axis, double value){
 		double returnValue = 0;
 		switch(axis){
