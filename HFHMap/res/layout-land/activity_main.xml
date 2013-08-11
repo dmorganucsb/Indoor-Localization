@@ -19,17 +19,17 @@
         android:layout_weight="1"
         android:orientation="vertical" >
 
-        <Button
-            android:id="@+id/step_len_btn"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_gravity="center_vertical"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:padding="10dp"
-            android:text="@string/step_length_str"
-            android:textSize="20sp" />
+    <Button
+        android:id="@+id/step_len_btn"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:padding="10dp"
+        android:text="Toggle Me"
+        android:textSize="20sp" />
         
+    <!-- 
         <TextView
             android:id="@+id/textview1"
             android:layout_width="match_parent"
@@ -40,7 +40,8 @@
             android:padding="10dp"
             android:text="Text 1"
             android:textSize="10sp" />
-        
+     -->
+     
         <Button
             android:id="@+id/angle_btn"
             android:layout_width="match_parent"
@@ -49,9 +50,10 @@
             android:layout_weight="1"
             android:gravity="center"
             android:padding="10dp"
-            android:text="@string/angleWRTN_str"
+            android:text="Train Me"
             android:textSize="20sp" />
         
+      <!--  
         <TextView
             android:id="@+id/textview2"
             android:layout_width="match_parent"
@@ -62,6 +64,7 @@
             android:padding="10dp"
             android:text="Text2"
             android:textSize="10sp" />
+        -->
         
         <Button
             android:id="@+id/step_btn"
@@ -71,9 +74,10 @@
             android:layout_weight="1"
             android:gravity="center"
             android:padding="10dp"
-            android:text="@string/step_str"
+            android:text="Find Me"
             android:textSize="20sp" />
-        
+       
+       <!--  
         <TextView
             android:id="@+id/textview3"
             android:layout_width="match_parent"
@@ -84,6 +88,7 @@
             android:padding="10dp"
             android:text="Text3"
             android:textSize="8sp" />
+        -->
         
         <Button
             android:id="@+id/reset"
@@ -93,7 +98,7 @@
             android:layout_weight="1"
             android:gravity="center"
             android:padding="10dp"
-            android:text="reset"
+            android:text="Reset Map"
             android:textSize="20sp" />
         
 </LinearLayout>

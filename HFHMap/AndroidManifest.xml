@@ -13,6 +13,10 @@
 	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
 	<uses-permission android:name="com.google.android.providers.gsf.permission.READ_GSERVICES"/>
+	
+	<uses-permission android:name="android.permission.ACCESS_WIFI_STATE"></uses-permission>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"></uses-permission>
+
 	<!-- The following two permissions are not required to use
 	     Google Maps Android API v2, but are recommended. -->
 	<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
@@ -46,7 +50,13 @@
         <uses-library android:name="com.google.android.maps"/>
         <meta-data
     		android:name="com.google.android.maps.v2.API_KEY"
-    		android:value="AIzaSyDYXtLozr83AM3NGNwy6Dx5Q1JNNksL7WM"/>
+    		android:value="AIzaSyCrp0wuQEks-P-_wDgTYkkAGQHfIT_cEJ4"/>
+        
+	    <receiver android:name=".WiFiScanReceiver">
+	      <intent-filter>
+	        <action android:name="ece596.ucsb" />
+	      </intent-filter>
+	    </receiver>
     </application>
 
 </manifest>
